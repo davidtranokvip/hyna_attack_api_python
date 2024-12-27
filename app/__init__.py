@@ -1,5 +1,5 @@
 from flask import Flask
-from app.routes import init_routes
+from app.routes.routes import init_routes
 from app.config import Config
 
 def create_app():
