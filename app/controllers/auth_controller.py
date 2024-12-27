@@ -1,6 +1,6 @@
 import os
 from flask import jsonify, request
-from app.models.user import User
+from app.models.user import UserModel
 from app.db import db
 import jwt
 from datetime import datetime, timedelta
@@ -21,7 +21,7 @@ class AuthController:
             return jsonify({'message': 'Invalid email format'}), 400
 
         # Check if user already exists
-        if User.query.filter_by(email=data['email']).first():
+        if UserModel.query.filter_by(email=data['email']).first():
             return jsonify({'message': 'Email already registered'}), 409
 
         # Validate password strength (min 8 chars)
@@ -29,7 +29,7 @@ class AuthController:
             return jsonify({'message': 'Password must be at least 8 characters'}), 400
 
         # Create new user
-        new_user = User(email=data['email'])
+        new_user = UserModel(email=data['email'])
         new_user.set_password(data['password'])
 
       
@@ -49,13 +49,13 @@ class AuthController:
         if not data or not data.get('email') or not data.get('password'):
             return jsonify({'message': 'Missing email or password'}), 400
 
-        user = User.query.filter_by(email=data['email']).first()
+        user = UserModel.query.filter_by(email=data['email']).first()
 
         if not user or not user.check_password(data['password']):
             return jsonify({'message': 'Invalid email or password'}), 401
 
         token = jwt.encode({
-            'user_id': user.id,
+            'id': user.id,
             'email': user.email,
             'role': user.role,
             'exp': datetime.utcnow() + timedelta(hours=24)
@@ -82,7 +82,7 @@ class AuthController:
                 # Split token to remove 'Bearer ' prefix if present
                 token_value = token.split()[1] if len(token.split()) > 1 else token
                 data = jwt.decode(token_value, os.getenv("SECRET_KEY"), algorithms=["HS256"])
-                current_user = User.query.get(data['user_id'])
+                current_user = UserModel.query.get(data['user_id'])
             except:
                 return jsonify({'message': 'Token is invalid'}), 401
 

@@ -1,24 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
-from database import get_db
-from app.models import User
-from schemas.user import UserCreate, UserUpdate, User as UserSchema
-from utils.auth import get_password_hash, verify_admin
+from flask import Blueprint, jsonify, request
+from app.models.user import UserModel
+from app.db import db
 
-router = APIRouter(prefix="/users", tags=["users"])
+user_routes = Blueprint('users', __name__, url_prefix='/users')
 
-@router.post("/", response_model=UserSchema)
-def create_user(user: UserCreate, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
-    db_user = User(
-        email=user.email,
-        password=get_password_hash(user.password),
-        role=user.role
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+@user_routes.post("/")
+def create_user():
+    user = request.get_json()
+
+    is_existed = UserModel.query.filter_by(email=user.get('email')).first()
+    if is_existed:
+        return jsonify({'message': 'Email already registered'}), 409
+    
+    new_user = UserModel(email=user.get('email'))
+    new_user.set_password(user.get('password'))
+
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({'message': 'User created successfully'}), 201
 
 # @router.get("/", response_model=List[UserSchema])
 # def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
