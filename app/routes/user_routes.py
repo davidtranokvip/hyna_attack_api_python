@@ -12,7 +12,7 @@ def create_user():
     if is_existed:
         return jsonify({'message': 'Email already registered'}), 409
     
-    new_user = User(email=user.get('email'), raw_password=user.get('password'))
+    new_user = User(email=user.get('email'), rawPassword=user.get('password'))
     new_user.set_password(user.get('password'))
 
     db.session.add(new_user)
