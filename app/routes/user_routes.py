@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.models.user import UserModel
+from app.models.user import User
 from app.db import db
 
 user_routes = Blueprint('users', __name__, url_prefix='/users')
@@ -8,11 +8,11 @@ user_routes = Blueprint('users', __name__, url_prefix='/users')
 def create_user():
     user = request.get_json()
 
-    is_existed = UserModel.query.filter_by(email=user.get('email')).first()
+    is_existed = User.query.filter_by(email=user.get('email')).first()
     if is_existed:
         return jsonify({'message': 'Email already registered'}), 409
     
-    new_user = UserModel(email=user.get('email'))
+    new_user = User(email=user.get('email'), raw_password=user.get('password'))
     new_user.set_password(user.get('password'))
 
     db.session.add(new_user)
@@ -20,10 +20,13 @@ def create_user():
     
     return jsonify({'message': 'User created successfully'}), 201
 
-# @router.get("/", response_model=List[UserSchema])
-# def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
-#     users = db.query(User).offset(skip).limit(limit).all()
-#     return users
+@user_routes.get("/")
+def get_users():
+    limit = request.args.get('limit', 10) 
+    skip = request.args.get('skip', 0)
+
+    users = db.session.query(User).limit(limit).offset(skip).all()
+    return jsonify([user.to_dict() for user in users])
 
 # @router.get("/{user_id}", response_model=UserSchema)
 # def get_user(user_id: int, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
