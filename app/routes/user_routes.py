@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from http.client import HTTPException
+from flask import Blueprint, jsonify, request, abort
 from app.models.user import User
 from app.db import db
 
@@ -24,40 +25,49 @@ def create_user():
 def get_users():
     limit = request.args.get('limit', 10) 
     skip = request.args.get('skip', 0)
+    search = request.args.get('search', '')
 
-    users = db.session.query(User).limit(limit).offset(skip).all()
+    query = User.query
+
+    query = query.filter(User.role == 'user')
+    if search:
+        query = query.filter(User.email.ilike(f'%{search}%'))
+
+    users = query.limit(limit).offset(skip).all()
     return jsonify([user.to_dict() for user in users])
 
-# @router.get("/{user_id}", response_model=UserSchema)
-# def get_user(user_id: int, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if user is None:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user
+@user_routes.route('/<int:userId>', methods=['GET'])
+def get_user(userId):
+    user = User.query.filter_by(id=userId).first()
+    
+    if user is None:
+        return jsonify({'message': 'User not found'}), 404
+    
+    return jsonify(user.to_dict())
 
-# @router.put("/{user_id}", response_model=UserSchema)
-# def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
-#     db_user = db.query(User).filter(User.id == user_id).first()
-#     if db_user is None:
-#         raise HTTPException(status_code=404, detail="User not found")
-    
-#     update_data = user.dict(exclude_unset=True)
-#     if "password" in update_data:
-#         update_data["password"] = get_password_hash(update_data["password"])
-    
-#     for key, value in update_data.items():
-#         setattr(db_user, key, value)
-    
-#     db.commit()
-#     db.refresh(db_user)
-#     return db_user
+@user_routes.route("/<int:userId>", methods=['PUT'])
+def update_user(userId: int):
+    user = User.query.filter_by(id=userId).first() 
 
-# @router.delete("/{user_id}")
-# def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: dict = Depends(verify_admin)):
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if user is None:
-#         raise HTTPException(status_code=404, detail="User not found")
+    if user is None:
+        return jsonify({'message': 'User not found'}), 404
+
+    userData = request.get_json()
     
-#     db.delete(user)
-#     db.commit()
-#     return {"message": "User deleted successfully"}
+    user.set_password(userData.get('password'))
+    user.rawPassword = userData.get('password')
+
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'message': 'User updated successfully'})
+
+@user_routes.route("/<int:userId>", methods=['DELETE'])
+def delete_user(userId: int):
+    user = User.query.filter_by(id=userId).first()
+    
+    if user is None:
+        return jsonify({'message': 'User not found'}), 404
+    
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'User deleted successfully'})
