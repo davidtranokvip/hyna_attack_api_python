@@ -5,7 +5,7 @@ from app.db import db
 
 user_routes = Blueprint('users', __name__, url_prefix='/users')
 
-@user_routes.post("/")
+@user_routes.post("")
 def create_user():
     user = request.get_json()
 
