@@ -21,7 +21,7 @@ def create_user():
     
     return jsonify({'message': 'User created successfully'}), 201
 
-@user_routes.get("/")
+@user_routes.get("")
 def get_users():
     limit = request.args.get('limit', 10) 
     skip = request.args.get('skip', 0)
