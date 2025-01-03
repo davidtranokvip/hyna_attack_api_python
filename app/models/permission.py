@@ -1,10 +1,7 @@
 from enum import Enum
-from typing import List
-from uuid import UUID, uuid4
 from datetime import datetime
-from sqlalchemy import String, DateTime, Enum as SQLAlchemyEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
+from sqlalchemy import String, Enum as SQLAlchemyEnum
+from sqlalchemy.orm import Mapped, mapped_column
 from app.db import db
 
 class ModuleEnum(str, Enum):
@@ -30,11 +27,16 @@ class Permission(db.Model):
     createdAt: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    roles: Mapped[List["Role"]] = relationship(
-        "Role",
-        secondary="role_permission",
-        back_populates="permissions"
-    )
-
     def __repr__(self) -> str:
         return f"Permission(id={self.id}, name={self.name}, method={self.method}, module={self.module})"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'apiPath': self.apiPath,
+            'method': self.method,
+            'module': self.module,
+            'createdAt': self.createdAt,
+            'updatedAt': self.updatedAt
+        }

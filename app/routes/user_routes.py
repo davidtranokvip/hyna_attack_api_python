@@ -23,8 +23,10 @@ def create_user():
 
 @user_routes.get("")
 def get_users():
-    limit = request.args.get('limit', 10) 
-    skip = request.args.get('skip', 0)
+    limit = int(request.args.get('limit', 10))
+    page = int(request.args.get('page', 1))
+    skip = (int(page) - 1) * int(limit)
+    
     search = request.args.get('search', '')
 
     query = User.query
@@ -34,7 +36,18 @@ def get_users():
         query = query.filter(User.email.ilike(f'%{search}%'))
 
     users = query.limit(limit).offset(skip).all()
-    return jsonify([user.to_dict() for user in users])
+    total = query.count()
+
+    return jsonify({
+        "status": "success",
+        "data": [user.to_dict() for user in users],
+        "meta": {
+            "total": total,
+            "totalPages": -(-total // int(limit)),
+            "currentPage": page,
+            "pageSize": limit,
+        }
+    }), 200
 
 @user_routes.route('/<int:userId>', methods=['GET'])
 def get_user(userId):
