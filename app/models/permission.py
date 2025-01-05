@@ -4,17 +4,12 @@ from sqlalchemy import String, Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import db
 
-class ModuleEnum(str, Enum):
-    USER = "USER"
-    POST = "POST"
-    ROLE = "ROLE"
-    PERMISSION = "PERMISSION"
-
 class MethodEnum(str, Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
     DELETE = "DELETE"
+    PATCH = "PATCH"
 
 class Permission(db.Model):
     __tablename__ = 'permissions'
@@ -23,7 +18,7 @@ class Permission(db.Model):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     apiPath: Mapped[str] = mapped_column(String(255), nullable=False)
     method: Mapped[MethodEnum] = mapped_column(SQLAlchemyEnum(MethodEnum), nullable=False)
-    module: Mapped[ModuleEnum] = mapped_column(SQLAlchemyEnum(ModuleEnum), nullable=False)
+    module: Mapped[str] = mapped_column(String(255), nullable=False)
     createdAt: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
