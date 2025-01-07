@@ -1,21 +1,30 @@
 from http.client import HTTPException
 from flask import Blueprint, jsonify, request, abort
 from app.models.user import User
+from app.models.role import Role
 from app.db import db
 from app.services.email_service import EmailService
 import os
 
 user_routes = Blueprint('users', __name__, url_prefix='/users')
+PASSWORD_MIN_LENGTH = 8
 
 @user_routes.post("")
 def create_user():
     user = request.get_json()
 
+    if len(user.get('password')) < PASSWORD_MIN_LENGTH:
+        return jsonify({'message': 'Password must be at least 8 characters long'}), 400
+
     is_existed = User.query.filter_by(email=user.get('email')).first()
     if is_existed:
         return jsonify({'message': 'Email already registered'}), 409
     
-    new_user = User(email=user.get('email'), rawPassword=user.get('password'))
+    role = Role.query.filter_by(id=user.get('roleId')).first()
+    if role is None:
+        return jsonify({'message': 'Role not found'}), 404
+
+    new_user = User(email=user.get('email'), rawPassword=user.get('password'), roleId=user.get('roleId'))
     new_user.set_password(user.get('password'))
 
     db.session.add(new_user)
@@ -58,10 +67,12 @@ def get_users():
     skip = (int(page) - 1) * int(limit)
     
     search = request.args.get('search', '')
+    roleId = request.args.get('roleId', '')
 
     query = User.query
 
-    query = query.filter(User.role == 'user')
+    if roleId:
+        query = query.filter(User.roleId == roleId)
     if search:
         query = query.filter(User.email.ilike(f'%{search}%'))
 
