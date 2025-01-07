@@ -13,6 +13,9 @@ PASSWORD_MIN_LENGTH = 8
 def create_user():
     user = request.get_json()
 
+    if user.get('email') is None or user.get('password') is None or user.get('roleId') is None:
+        return jsonify({'message': 'Email, password, and roleId are required'}), 400
+    
     if len(user.get('password')) < PASSWORD_MIN_LENGTH:
         return jsonify({'message': 'Password must be at least 8 characters long'}), 400
 
@@ -102,12 +105,20 @@ def get_user(userId):
 @user_routes.route("/<int:userId>", methods=['PUT'])
 def update_user(userId: int):
     user = User.query.filter_by(id=userId).first() 
+    userData = request.get_json()
 
     if user is None:
         return jsonify({'message': 'User not found'}), 404
-
-    userData = request.get_json()
     
+    if userData.get('password') is None or userData.get('roleId') is None:
+        return jsonify({'message': 'Password and roleId are required'}), 400
+
+    roleId = userData.get('roleId')
+    role = Role.query.filter_by(id=roleId).first()
+    if role is None:
+        return jsonify({'message': 'Role not found'}), 404
+    
+    user.roleId = userData.get('roleId')
     user.set_password(userData.get('password'))
     user.rawPassword = userData.get('password')
 
