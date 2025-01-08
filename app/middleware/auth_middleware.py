@@ -3,7 +3,7 @@ from flask import request, jsonify
 import jwt
 from app.config import Config
 
-def tokenRequired(f):
+def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
@@ -14,8 +14,8 @@ def tokenRequired(f):
             return jsonify({'message': 'Token is missing'}), 401
 
         try:
-            currentUser = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
-            request.currentUser = currentUser
+            current_user = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
+            request.current_user = current_user
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired'}), 401
         except jwt.InvalidTokenError:

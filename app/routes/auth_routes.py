@@ -1,7 +1,7 @@
 from app.controllers.auth_controller import AuthController
 from flask import Blueprint, jsonify, request
 from app.models.user import User
-from app.middleware.auth_middleware import tokenRequired
+from app.middleware.auth_middleware import token_required
 
 auth_routes = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -10,11 +10,12 @@ def login():
     return AuthController.login()
 
 @auth_routes.get("/me")
-@tokenRequired
+@token_required
 def get_current_user():
-    currentUser = request.currentUser
+    current_user = request.current_user
 
-    user = User.query.filter_by(id=currentUser['id']).first()
+    print(current_user)
+    user = User.query.filter_by(id=current_user['id']).first()
     
     if not user:
         return jsonify({'message': 'User not found'}), 404
