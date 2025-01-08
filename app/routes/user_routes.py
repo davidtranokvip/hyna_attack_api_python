@@ -1,16 +1,19 @@
-from http.client import HTTPException
-from flask import Blueprint, jsonify, request, abort
+from flask import Blueprint, jsonify, request
 from app.models.user import User
 from app.models.role import Role
 from app.db import db
 from app.services.email_service import EmailService
+from app.middleware.auth_middleware import tokenRequired
+from app.middleware.permission_middleware import checkPermission
 import os
 
 user_routes = Blueprint('users', __name__, url_prefix='/users')
 PASSWORD_MIN_LENGTH = 8
 
 @user_routes.post("")
-def create_user():
+@tokenRequired
+@checkPermission()
+def createUser():
     user = request.get_json()
 
     if user.get('email') is None or user.get('password') is None or user.get('roleId') is None:
@@ -64,7 +67,9 @@ def create_user():
     return jsonify({'message': 'User created successfully'}), 201
 
 @user_routes.get("")
-def get_users():
+@tokenRequired
+@checkPermission()
+def getUsers():
     limit = int(request.args.get('limit', 10))
     page = int(request.args.get('page', 1))
     skip = (int(page) - 1) * int(limit)
@@ -94,7 +99,9 @@ def get_users():
     }), 200
 
 @user_routes.route('/<int:userId>', methods=['GET'])
-def get_user(userId):
+@tokenRequired
+@checkPermission()
+def getUser(userId):
     user = User.query.filter_by(id=userId).first()
     
     if user is None:
@@ -103,7 +110,9 @@ def get_user(userId):
     return jsonify(user.to_dict())
 
 @user_routes.route("/<int:userId>", methods=['PUT'])
-def update_user(userId: int):
+@tokenRequired
+@checkPermission()
+def updateUser(userId: int):
     user = User.query.filter_by(id=userId).first() 
     userData = request.get_json()
 
@@ -127,7 +136,9 @@ def update_user(userId: int):
     return jsonify({'message': 'User updated successfully'})
 
 @user_routes.route("/<int:userId>", methods=['DELETE'])
-def delete_user(userId: int):
+@tokenRequired
+@checkPermission()
+def deleteUser(userId: int):
     user = User.query.filter_by(id=userId).first()
     
     if user is None:
