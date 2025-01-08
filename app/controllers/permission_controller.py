@@ -46,7 +46,7 @@ class PermissionController:
         if apiPath:
             query = query.filter(Permission.apiPath.ilike(f'%{apiPath}%'))
         
-        permissions = query.limit(limit).offset(skip).all()
+        permissions = query.order_by(Permission.updatedAt).limit(limit).offset(skip).all()
         total = query.count()
 
         return jsonify({
