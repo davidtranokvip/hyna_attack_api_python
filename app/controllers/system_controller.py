@@ -36,7 +36,7 @@ class SystemController:
             statusBool = status.lower() == 'true'
             query = query.filter(System.status == statusBool)
         
-        systems = query.limit(limit).offset(skip).all()
+        systems = query.order_by(System.updatedAt.desc()).limit(limit).offset(skip).all()
         total = query.count()
         return jsonify({
             'systems': [system.toDict() for system in systems],

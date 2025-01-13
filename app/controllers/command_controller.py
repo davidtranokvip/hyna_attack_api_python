@@ -46,7 +46,7 @@ class CommandController:
         if systemId:
             query = query.filter(Command.systemId == int(systemId))
         
-        commands = query.limit(limit).offset(skip).all()
+        commands = query.order_by(Command.updatedAt.desc()).limit(limit).offset(skip).all()
         total = query.count()
         return jsonify({
             'commands': [command.toDict() for command in commands],

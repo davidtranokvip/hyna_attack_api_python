@@ -46,7 +46,7 @@ class RoleController:
         if search:
             query = query.filter(Role.name.ilike(f'%{search}%'))
         
-        roles = query.limit(limit).offset(skip).all()
+        roles = query.order_by(Role.updatedAt.desc()).limit(limit).offset(skip).all()
         total = query.count()
         return jsonify({
             "status": "success",
