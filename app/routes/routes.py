@@ -5,6 +5,7 @@ from .role_routes import role_routes
 from .permission_routes import permission_routes
 from .check_host_routes import check_host_routes
 from .system_routes import system_routes
+from .command_routes import command_routes
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
@@ -19,4 +20,5 @@ def init_routes(app):
     api.register_blueprint(permission_routes)
     api.register_blueprint(check_host_routes)
     api.register_blueprint(system_routes)
+    api.register_blueprint(command_routes)
     app.register_blueprint(api)
