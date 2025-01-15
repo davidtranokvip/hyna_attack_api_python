@@ -36,3 +36,9 @@ def updateCommand(commandId):
 @checkPermission()
 def deleteCommand(commandId):
     return controller.delete(commandId)
+
+@command_routes.route("/<int:commandId>/run", methods=['POST'])
+@tokenRequired
+@checkPermission()
+def runCommand(commandId):
+    return controller.run(commandId)

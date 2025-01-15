@@ -13,6 +13,7 @@ class Command(db.Model):
     command: Mapped[str] = mapped_column(String(1000))
     status: Mapped[bool] = mapped_column(Boolean, default=True)
     systemId: Mapped[int] = mapped_column(Integer, db.ForeignKey('systems.id'))
+    durationOfRunning: Mapped[int] = mapped_column(Integer, default=0)
     createdBy: Mapped[int] = mapped_column(Integer, db.ForeignKey('user.id'))
     updatedBy: Mapped[int] = mapped_column(Integer, db.ForeignKey('user.id'))
     createdAt: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -29,6 +30,7 @@ class Command(db.Model):
             'command': self.command,
             'status': self.status,
             'system': self.system.toDict(),
+            'durationOfRunning': self.durationOfRunning,
             'createdBy': {
                 'id': self.createdByUser.id,
                 'email': self.createdByUser.email
