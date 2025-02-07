@@ -8,3 +8,5 @@ pyjwt
 flask_cors
 yagmail
 paramiko
+flask-socketio
+flask-cors

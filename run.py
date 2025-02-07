@@ -1,4 +1,5 @@
 from app import create_app
+from app.extensions import socketio
 from app.db import db
 from dotenv import load_dotenv
 from flask_cors import CORS
@@ -16,4 +17,4 @@ with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    socketio.run(app, host='0.0.0.0', port=5001, debug=True)
