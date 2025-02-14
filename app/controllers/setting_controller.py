@@ -4,19 +4,61 @@ from app.db import db
 
 class SettingController:
     def create(self):
-        data = request.get_json()
-        
-        newSetting = Setting(
-            key=data['key'],
-            value=data['value'],
-            group=data['group']
-        )
-        
-        db.session.add(newSetting)
-        db.session.commit()
-        
-        return jsonify({'message': 'Setting created successfully', 'data': newSetting.toDict()}), 201
+        try:
+            data_list = request.get_json()
+            if not isinstance(data_list, list):
+                data_list = [data_list]
+            
+            created_settings = []
+            for data in data_list:
+                
+                existing_setting = Setting.query.filter_by(
+                    group=data['group'],
+                    type=data['type']
+                ).first()
+                
+                if existing_setting:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Setting with group '{data['group']}' and type '{data['type']}' already exists"
+                    }), 400
+            
 
+                if not isinstance(data['value'], list):
+                    return jsonify({
+                        "status": "error",
+                        "message": "Value must be an array"
+                    }), 400
+
+                for item in data['value']:
+                    if not isinstance(item, dict):
+                        return jsonify({
+                            "status": "error",
+                            "message": "Each item in value must be an object"
+                        }), 400
+                
+                new_setting = Setting(
+                    value=data['value'],
+                    group=data['group'],
+                    type=data['type']
+                )
+                
+                db.session.add(new_setting)
+                created_settings.append(new_setting)
+            
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Settings created successfully', 
+                'status': 'success'
+            }), 202
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400
     def getAll(self):
         limit = int(request.args.get('limit', 10))
         page = int(request.args.get('page', 1))
@@ -66,12 +108,12 @@ class SettingController:
             }), 404
         
         data = request.get_json()
-        setting.key = data.get('key', setting.key)
         setting.value = data.get('value', setting.value)
+        setting.type = data.get('type', setting.type)
         setting.group = data.get('group', setting.group)
 
         db.session.commit()
-        return jsonify({'message': 'Setting updated successfully', 'data': setting.toDict()}), 200
+        return jsonify({'message': 'Setting updated successfully', 'data': setting.toDict(), 'status': 'success'}), 200
 
     def delete(self, settingId: int):
         setting = Setting.query.filter_by(id=settingId).first()
@@ -83,4 +125,4 @@ class SettingController:
         
         db.session.delete(setting)
         db.session.commit()
-        return jsonify({'message': 'Setting deleted successfully'}), 200
+        return jsonify({'message': 'System deleted successfully', 'status': 'success'}), 200

@@ -1,6 +1,6 @@
 Flask
 Flask-SQLAlchemy
-Flask-Migrate
+Flask-Migrate   
 python-dotenv
 gunicorn
 PyMySQL
