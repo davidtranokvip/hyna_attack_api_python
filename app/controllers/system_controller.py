@@ -88,4 +88,4 @@ class SystemController:
         
         db.session.delete(system)
         db.session.commit()
-        return jsonify({'message': 'System deleted successfully'}), 200
+        return jsonify({'message': 'System deleted successfully', 'status': 'success'}), 200
