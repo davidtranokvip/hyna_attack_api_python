@@ -5,6 +5,7 @@ from app.extensions import socketio
 import os
 from app.db import db
 from flask_cors import CORS
+# from app.models import init_models
 
 def create_app():
     app = Flask(__name__)
@@ -18,6 +19,7 @@ def create_app():
     db.init_app(app)
 
     with app.app_context():
+        # init_models()
         db.create_all()
     
     return app

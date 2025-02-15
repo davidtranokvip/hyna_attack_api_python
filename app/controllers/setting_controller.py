@@ -22,7 +22,6 @@ class SettingController:
                         "status": "error",
                         "message": f"Setting with group '{data['group']}' and type '{data['type']}' already exists"
                     }), 400
-            
 
                 if not isinstance(data['value'], list):
                     return jsonify({
@@ -60,69 +59,94 @@ class SettingController:
                 "message": str(e)
             }), 400
     def getAll(self):
-        limit = int(request.args.get('limit', 10))
-        page = int(request.args.get('page', 1))
-        skip = (page - 1) * limit
+        try:
+            limit = int(request.args.get('limit', 10))
+            page = int(request.args.get('page', 1))
+            skip = (page - 1) * limit
 
-        search = request.args.get('search', '')
-        group = request.args.get('group', '')
+            search = request.args.get('search', '')
+            group = request.args.get('group', '')
 
-        query = db.session.query(Setting)
-        if search:
-            query = query.filter(Setting.key.ilike(f'%{search}%'))
-        if group:
-            query = query.filter(Setting.group == group)
-        
-        settings = query.order_by(Setting.updatedAt.desc()).limit(limit).offset(skip).all()
-        total = query.count()
-        
-        return jsonify({
-            'settings': [setting.toDict() for setting in settings],
-            'meta': {
-                'total': total,
-                'totalPages': -(-total // limit),
-                'currentPage': page,
-                'pageSize': limit
-            }
-        }), 200
-
+            query = db.session.query(Setting)
+            if search:
+                query = query.filter(Setting.key.ilike(f'%{search}%'))
+            if group:
+                query = query.filter(Setting.group == group)
+            
+            settings = query.order_by(Setting.updatedAt.desc()).limit(limit).offset(skip).all()
+            total = query.count()
+            
+            return jsonify({
+                'settings': [setting.toDict() for setting in settings],
+                'meta': {
+                    'total': total,
+                    'totalPages': -(-total // limit),
+                    'currentPage': page,
+                    'pageSize': limit
+                }
+            }), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400
     def getOne(self, settingId: int):
-        setting = Setting.query.filter_by(id=settingId).first()
-        if not setting:
+        try:
+            setting = Setting.query.filter_by(id=settingId).first()
+            if not setting:
+                return jsonify({
+                    "status": "error",
+                    "message": "Setting not found"
+                }), 404
+            
+            return jsonify({
+                "status": "success",
+                "data": setting.toDict()
+            }), 200
+        except Exception as e:
+            db.session.rollback()
             return jsonify({
                 "status": "error",
-                "message": "Setting not found"
-            }), 404
-        
-        return jsonify({
-            "status": "success",
-            "data": setting.toDict()
-        }), 200
-
+                "message": str(e)
+            }), 400
     def update(self, settingId: int):
-        setting = Setting.query.filter_by(id=settingId).first()
-        if not setting:
+        try: 
+            setting = Setting.query.filter_by(id=settingId).first()
+            if not setting:
+                return jsonify({
+                    "status": "error",
+                    "message": "Setting not found"
+                }), 404
+            
+            data = request.get_json()
+            setting.value = data.get('value', setting.value)
+            setting.type = data.get('type', setting.type)
+            setting.group = data.get('group', setting.group)
+
+            db.session.commit()
+            return jsonify({'message': 'Setting updated successfully', 'data': setting.toDict(), 'status': 'success'}), 200
+        except Exception as e:
+            db.session.rollback()
             return jsonify({
                 "status": "error",
-                "message": "Setting not found"
-            }), 404
-        
-        data = request.get_json()
-        setting.value = data.get('value', setting.value)
-        setting.type = data.get('type', setting.type)
-        setting.group = data.get('group', setting.group)
-
-        db.session.commit()
-        return jsonify({'message': 'Setting updated successfully', 'data': setting.toDict(), 'status': 'success'}), 200
-
+                "message": str(e)
+            }), 400
     def delete(self, settingId: int):
-        setting = Setting.query.filter_by(id=settingId).first()
-        if not setting:
+        try:
+            setting = Setting.query.filter_by(id=settingId).first()
+            if not setting:
+                return jsonify({
+                    "status": "error",
+                    "message": "Setting not found"
+                }), 404
+            
+            db.session.delete(setting)
+            db.session.commit()
+            return jsonify({'message': 'System deleted successfully', 'status': 'success'}), 200
+        except Exception as e:
+            db.session.rollback()
             return jsonify({
                 "status": "error",
-                "message": "Setting not found"
-            }), 404
-        
-        db.session.delete(setting)
-        db.session.commit()
-        return jsonify({'message': 'System deleted successfully', 'status': 'success'}), 200
+                "message": str(e)
+            }), 400

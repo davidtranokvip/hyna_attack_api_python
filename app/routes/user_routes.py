@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app.models.user import User
-from app.models.role import Role
+from app.models.permission import Permission
+from app.models.user_permission import UserPermission
 from app.db import db
 from app.services.email_service import EmailService
 from app.middleware.auth_middleware import tokenRequired
@@ -16,8 +17,8 @@ PASSWORD_MIN_LENGTH = 8
 def createUser():
     user = request.get_json()
 
-    if user.get('email') is None or user.get('password') is None or user.get('roleId') is None:
-        return jsonify({'message': 'Email, password, and roleId are required'}), 400
+    if user.get('email') is None or user.get('password') is None:
+        return jsonify({'message': 'Email and password are required'}), 400
     
     if len(user.get('password')) < PASSWORD_MIN_LENGTH:
         return jsonify({'message': 'Password must be at least 8 characters long'}), 400
@@ -25,46 +26,52 @@ def createUser():
     is_existed = User.query.filter_by(email=user.get('email')).first()
     if is_existed:
         return jsonify({'message': 'Email already registered'}), 409
-    
-    role = Role.query.filter_by(id=user.get('roleId')).first()
-    if role is None:
-        return jsonify({'message': 'Role not found'}), 404
-
-    new_user = User(email=user.get('email'), rawPassword=user.get('password'), roleId=user.get('roleId'))
+    new_user = User(email=user.get('email'), rawPassword=user.get('password'))
     new_user.set_password(user.get('password'))
 
     db.session.add(new_user)
     db.session.commit()
-    
-    emailService = EmailService()
-    subject = "Welcome to Hyna Platform - Your Account Details"
-    content = [
-        """
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">Welcome to Hyna Platform!</h2>
+
+    if user.get('permissionIds'):
+    # Tạo các bản ghi trong bảng user_permissions
+        for permission_id in user.get('permissionIds'):
+            user_permission = UserPermission(
+                userId=new_user.id,
+                permissionId=permission_id
+            )
+            db.session.add(user_permission)
+        
+    db.session.commit()
+
+    # send email smtp
+    # emailService = EmailService()
+    # subject = "Welcome to Hyna Platform - Your Account Details"
+    # content = [
+    #     f"""
+    #     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    #         <h2 style="color: #333;">Welcome to Hyna Platform!</h2>
             
-            <p>Your account has been successfully created. Here are your login credentials:</p>
+    #         <p>Your account has been successfully created. Here are your login credentials:</p>
             
-            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <p><strong>Email:</strong> {}</p>
-                <p><strong>Password:</strong> {}</p>
-            </div>
+    #         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    #             <p><strong>Email:</strong> {user.get('email')}</p>
+    #             <p><strong>Password:</strong> {user.get('password')}</p>
+    #         </div>
 
-            <p>For security reasons, we recommend changing your password after your first login.</p>
+    #         <p>For security reasons, we recommend changing your password after your first login.</p>
             
-            <p>Login here: <a href="{}/login">{}/login</a></p>
+    #         <p>Login here: <a href="{os.getenv('FRONTEND_URL')}/login">{os.getenv('FRONTEND_URL')}/login</a></p>
 
-            <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                This is an automated message, please do not reply to this email.<br>
-                If you need assistance, please contact our support team.
-            </p>
-        </div>
-        """.format(user.get('email'), user.get('password'), os.getenv('FRONTEND_URL'), os.getenv('FRONTEND_URL'))
-    ]
-    emailService.send_email(user.get('email'), subject, content)
+    #         <p style="color: #666; font-size: 12px; margin-top: 30px;">
+    #             This is an automated message, please do not reply to this email.<br>
+    #             If you need assistance, please contact our support team.
+    #         </p>
+    #     </div>
+    #     """
+    # ]
+    # emailService.send_email(user.get('email'), subject, content)
 
-
-    return jsonify({'message': 'User created successfully'}), 201
+    return jsonify({'message': 'User created successfully', 'status': 'success'}), 201
 
 @user_routes.get("")
 @tokenRequired
@@ -75,12 +82,9 @@ def getUsers():
     skip = (int(page) - 1) * int(limit)
     
     search = request.args.get('search', '')
-    roleId = request.args.get('roleId', '')
 
     query = User.query
 
-    if roleId:
-        query = query.filter(User.roleId == roleId)
     if search:
         query = query.filter(User.email.ilike(f'%{search}%'))
 
@@ -119,21 +123,15 @@ def updateUser(userId: int):
     if user is None:
         return jsonify({'message': 'User not found'}), 404
     
-    if userData.get('password') is None or userData.get('roleId') is None:
-        return jsonify({'message': 'Password and roleId are required'}), 400
+    if userData.get('password') is None:
+        return jsonify({'message': 'Password are required'}), 400
 
-    roleId = userData.get('roleId')
-    role = Role.query.filter_by(id=roleId).first()
-    if role is None:
-        return jsonify({'message': 'Role not found'}), 404
-    
-    user.roleId = userData.get('roleId')
     user.set_password(userData.get('password'))
     user.rawPassword = userData.get('password')
 
     db.session.add(user)
     db.session.commit()
-    return jsonify({'message': 'User updated successfully'})
+    return jsonify({'message': 'User updated successfully', 'status': 'success'})
 
 @user_routes.route("/<int:userId>", methods=['DELETE'])
 @tokenRequired
@@ -146,4 +144,4 @@ def deleteUser(userId: int):
     
     db.session.delete(user)
     db.session.commit()
-    return jsonify({'message': 'User deleted successfully'})
+    return jsonify({'message': 'User deleted successfully', 'status': 'success'})
