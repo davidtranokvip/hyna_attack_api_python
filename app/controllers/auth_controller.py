@@ -32,7 +32,6 @@ class AuthController:
         new_user = User(email=data['email'])
         new_user.set_password(data['password'])
 
-      
         try:
             db.session.add(new_user)
             db.session.commit()
@@ -57,7 +56,7 @@ class AuthController:
         token = jwt.encode({
             'id': user.id,
             'email': user.email,
-            'roleId': user.role.id,
+             'isAdmin': user.isAdmin,
             'exp': datetime.utcnow() + timedelta(hours=24)
         }, os.getenv("SECRET_KEY"), algorithm='HS256')
 
@@ -65,7 +64,6 @@ class AuthController:
             'token': token,
             'user': {
                 'email': user.email,
-                'roleId': user.role.id,
             }
         })
 
