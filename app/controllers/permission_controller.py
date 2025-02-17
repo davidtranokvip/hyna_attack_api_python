@@ -2,6 +2,9 @@ from flask import jsonify, request
 from ..models.permission import Permission
 from datetime import datetime
 from app.db import db
+from app.models.user_permission import UserPermission
+from app.models.user import User
+from sqlalchemy import or_, exists
 
 class PermissionController:
     def __init__(self):
@@ -44,7 +47,33 @@ class PermissionController:
                 "status": "error",
                 "message": str(e)
             }), 400
-    
+
+    def getUserPermissions(self):
+        try:
+            current_user = request.currentUser
+            current_user_id = current_user.get('id')
+
+            # Single query using OR condition
+            permissions = db.session.query(Permission)\
+                .distinct()\
+                .outerjoin(UserPermission)\
+                .filter(
+                    or_(
+                        exists().where(User.id == current_user_id).where(User.isAdmin == True),
+                        UserPermission.userId == current_user_id
+                    )
+                ).all()
+
+            return jsonify({
+                "status": "success",
+                "data": [permission.to_dict() for permission in permissions]
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                "status": "error", 
+                "message": str(e)
+            }), 400
     def getPermissions(self):
         try: 
             limit = int(request.args.get('limit', 10))

@@ -21,6 +21,13 @@ def createPermission():
 def getPermissions():
     return controller.getPermissions()
 
+@permission_routes.route("/user", methods=['GET'])
+@tokenRequired
+# @checkPermission()
+def getUserPermissions():
+    return controller.getUserPermissions()
+
+
 @permission_routes.route("/<int:permissionId>", methods=['GET'])
 @tokenRequired
 @checkPermission()
