@@ -5,6 +5,9 @@ from app.db import db
 import paramiko
 import threading
 import json
+from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
+from app.models.user import User
+from app.configs.whitelist import WHITELISTED_IPS
 
 class AttackController:
     def _streamOutput(self, channel, socketId, attackLogId, app):
@@ -60,8 +63,32 @@ class AttackController:
             return False, str(e)
 
     def attack(self):
+        # Check if client IP is whitelisted
+        client_ip = request.remote_addr
+        if client_ip not in WHITELISTED_IPS:
+            return jsonify({
+                "status": "error",
+                "message": "Access denied: Your IP is not whitelisted"
+            }), 403
+
         currentUser = request.currentUser
         data = request.get_json()
+        
+        # Check if user is active and hasn't exceeded max attempts
+        user = User.query.get(currentUser['id'])
+        if not user.status:
+            return jsonify({
+                "status": "error",
+                "message": "Your account has been deactivated"
+            }), 403
+
+        # Check for MAX_ATTACK_ATTEMPTS before proceeding
+        if user.attackCount >= MAX_ATTACK_ATTEMPTS:
+            user.deactivate()
+            return jsonify({
+                "status": "error",
+                "message": f"You have exceeded the maximum number of attacks ({MAX_ATTACK_ATTEMPTS}). Your account has been deactivated"
+            }), 403
 
         socketId = data.get('sid', '')
         domainName = data.get('domain', '')
@@ -69,6 +96,19 @@ class AttackController:
         concurrentValue = data.get('concurrents', '10')
         requestCount = data.get('requests', '100')
         
+        # Check blacklisted domains
+        for blacklisted in BLACKLISTED_DOMAINS:
+            if blacklisted in domainName.lower():
+                # Increment attack count first
+                user.increment_attack_count()
+
+                return jsonify({
+                    "status": "error",
+                    "message": f"Your account has been deactivated for attempting to attack restricted domain {domainName}"
+                }), 403
+
+      
+
         # Get headers from request headers
         headers = dict(request.headers)
         # Remove default headers we don't want to store
