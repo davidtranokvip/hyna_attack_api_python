@@ -6,57 +6,6 @@ from app.models.user import User
 from app.db import db
 import re
 
-
-
-
-# def checkPermission():
-#     def decorator(f):
-#         @wraps(f)
-#         def decorated(*args, **kwargs):
-#             if not hasattr(request, 'currentUser'):
-#                 return jsonify({'message': 'Unauthorized'}), 401
-#             try:
-#                 currentUser = request.currentUser
-#                 userId = currentUser.get('id')
-#                 user = User.query.get(userId)
-#                 if user and user.isAdmin:
-#                     return f(*args, **kwargs)
-                
-#                 # Get current path and method
-#                 path = request.path.replace('api/', '', 1)
-#                 method = request.method
-
-#                 # Query permissions for the user's role
-#                 userPermissions = db.session.query(Permission)\
-#                     .join(UserPermission, UserPermission.permissionId == Permission.id)\
-#                     .filter(UserPermission.userId == userId)\
-#                     .all()
-                
-#                 # Convert API path pattern to regex 
-#                 hasPermission = any(
-#                     (
-#                         p.route.replace(':id', '[^/]+').replace('/', '\\/') == path or 
-#                         re.match(
-#                             fr"^{p.route.replace(':id', '[^/]+').replace('/', '/')}$",
-#                             path
-#                         )
-#                     ) and p.method == method
-#                     for p in userPermissions
-#                     if p and p.route
-#                 )
-
-#                 if not hasPermission:
-#                     return jsonify({'message': 'Permission denied'}), 403
-
-#                 return f(*args, **kwargs)
-#             except Exception as e:
-#                 print(f"Permission check error: {str(e)}")
-#                 return jsonify({'message': 'Error checking permissions'}), 500
-                
-#         return decorated
-#     return decorator
-
-
 def checkPermission():
     def decorator(f):
         @wraps(f)
@@ -66,7 +15,6 @@ def checkPermission():
             try:
                 currentUser = request.currentUser
                 userId = currentUser.get('id')
-                
                 # Check if user exists and is admin
                 user = User.query.get(userId)
                 if not user:

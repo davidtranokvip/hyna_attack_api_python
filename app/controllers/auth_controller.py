@@ -56,7 +56,7 @@ class AuthController:
         token = jwt.encode({
             'id': user.id,
             'email': user.email,
-             'isAdmin': user.isAdmin,
+            'isAdmin': user.isAdmin,
             'exp': datetime.utcnow() + timedelta(hours=24)
         }, os.getenv("SECRET_KEY"), algorithm='HS256')
 
