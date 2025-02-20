@@ -11,7 +11,7 @@ class AuthController:
     @staticmethod
     def register():
         data = request.get_json()
-        
+        z
         if not data or not data.get('email') or not data.get('password'):
             return jsonify({'message': 'Missing email or password'}), 400
 
@@ -38,32 +38,33 @@ class AuthController:
             return jsonify({'message': 'User registered successfully'}), 201
         except Exception as e:
             db.session.rollback()
-            print(e)
             return jsonify({'message': 'Registration failed'}), 500
 
     @staticmethod
     def login():
         data = request.get_json()
         
-        if not data or not data.get('email') or not data.get('password'):
+        if not data or not data.get('nameAccount') or not data.get('password'):
             return jsonify({'message': 'Missing email or password'}), 400
 
-        user = User.query.filter_by(email=data['email']).first()
+        user = User.query.filter_by(nameAccount=data['nameAccount']).first()
 
         if not user or not user.check_password(data['password']):
-            return jsonify({'message': 'Invalid email or password'}), 401
+            return jsonify({'message': 'Access Denied ', 'status': 'error'}), 401
 
         token = jwt.encode({
             'id': user.id,
             'email': user.email,
+            'nameAccount': user.nameAccount,
             'isAdmin': user.isAdmin,
             'exp': datetime.utcnow() + timedelta(hours=24)
         }, os.getenv("SECRET_KEY"), algorithm='HS256')
 
         return jsonify({
+            'message': "Access Authorized",
             'token': token,
             'user': {
-                'email': user.email,
+                'nameAccount': user.nameAccount,
             }
         })
 

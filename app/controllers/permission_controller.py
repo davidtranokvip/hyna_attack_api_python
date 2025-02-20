@@ -15,7 +15,7 @@ class PermissionController:
             permission = request.get_json()
             
             existing_permission = Permission.query.filter_by(
-                method=permission['method'],
+                # method=permission['method'],
                 module=permission['module'],
                 route=permission['route'],
             ).first()
@@ -28,7 +28,7 @@ class PermissionController:
 
             newPermission = Permission(
                 name=permission.get('name'),
-                method=permission.get('method'),
+                # method=permission.get('method'),
                 module=permission.get('module'),
                 route=permission.get('route')
             )
@@ -139,7 +139,7 @@ class PermissionController:
         try: 
             permission = request.get_json()
             permissionName = permission.get('name')
-            permissionMethod = permission.get('method')
+            # permissionMethod = permission.get('method')
             permissionModule = permission.get('module')
             permissionroute = permission.get('route')
 
@@ -152,7 +152,7 @@ class PermissionController:
                 }), 404
 
             permission.name = permissionName
-            permission.method = permissionMethod
+            # permission.method = permissionMethod
             permission.module = permissionModule
             permission.route = permissionroute
             permission.updatedAt = datetime.now()

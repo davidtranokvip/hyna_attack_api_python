@@ -32,9 +32,10 @@ def createUser():
         is_existed = User.query.filter_by(email=user.get('email')).first()
         if is_existed:
             return jsonify({'message': 'Email already registered'}), 409
-        new_user = User(email=user.get('email'), rawPassword=user.get('password'), nameAccount=user.get('nameAccount'), nameTeam=user.get('nameTeam'))
+        
+        new_user = User(email=user.get('email'), rawPassword=user.get('password'), team_id=user.get('team_id'), nameAccount=user.get('nameAccount'))
         new_user.set_password(user.get('password'))
-
+        
         db.session.add(new_user)
         db.session.commit()
 
@@ -142,12 +143,14 @@ def updateUser(userId: int):
     try:
         user = User.query.filter_by(id=userId).first() 
         userData = request.get_json()
-        print(userData)
         if not user:
             return jsonify({'message': 'User not found'}), 404
         
         if not userData.get('password'):
             return jsonify({'message': 'Password are required'}), 400
+        
+        if not userData.get('team_id'):
+            return jsonify({'message': 'Team are required'}), 400
                 
         if not userData.get('email') or not userData.get('password'):
             return jsonify({'message': 'Missing email or password'}), 400
@@ -173,8 +176,7 @@ def updateUser(userId: int):
         user.set_password(userData.get('password'))
         user.rawPassword = userData.get('password')
         user.nameAccount = userData.get('nameAccount')
-        user.nameTeam = userData.get('nameTeam')
-
+        user.team_id = userData.get('team_id')
         db.session.add(user)
         UserPermission.query.filter_by(userId=userId).delete()
         db.session.commit()

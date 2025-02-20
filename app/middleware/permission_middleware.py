@@ -24,10 +24,12 @@ def checkPermission():
                     return f(*args, **kwargs)
                 
                 # Get current path and method
-                path = request.path.replace('api/', '', 1)  # Remove api/ prefix
+                path = request.path  # "/api/users" hoặc "/api/users/123" ...
                 method = request.method
                 
-                print(f"Checking permission for path: {path}, method: {method}")  # Debug log
+                if path.startswith('/api/'):
+                    path = path[5:]
+                    path = path.split('/')[0]
 
                 # Query permissions for the user
                 userPermissions = db.session.query(Permission)\
@@ -35,8 +37,6 @@ def checkPermission():
                     .filter(UserPermission.userId == userId)\
                     .all()
                 
-                print(f"User permissions: {[p.to_dict() for p in userPermissions]}")  # Debug log
-
                 if not userPermissions:
                     return jsonify({'message': 'No permissions found'}), 403
 
@@ -54,13 +54,10 @@ def checkPermission():
                         route_pattern == path or 
                         re.match(fr"^{route_pattern}$", path)
                     )
-                    method_matches = p.method == method
+                    # method_matches = p.method == method
                     
-                    print(f"Checking route: {p.route} -> pattern: {route_pattern}")  # Debug log
-                    print(f"Against path: {path}, method: {method}")  # Debug log
-                    print(f"Path matches: {path_matches}, Method matches: {method_matches}")  # Debug log
-                    
-                    if path_matches and method_matches:
+                    # if path_matches and method_matches:
+                    if path_matches:
                         hasPermission = True
                         break
 
@@ -75,7 +72,6 @@ def checkPermission():
                 return f(*args, **kwargs)
                 
             except Exception as e:
-                print(f"Permission check error: {str(e)}")
                 return jsonify({'message': f'Error checking permissions: {str(e)}'}), 500
                 
         return decorated
