@@ -18,8 +18,6 @@ def tokenRequired(f):
             currentUser = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
             # Check if user is active
             user = User.query.get(currentUser['id'])
-            if not user.status:
-                return jsonify({'message': 'Your account has been deactivated'}), 403
             request.currentUser = currentUser
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired'}), 401
