@@ -65,11 +65,12 @@ class AttackController:
     def attack(self):
         # Check if client IP is whitelisted
         client_ip = request.remote_addr
+        print(client_ip)
         if client_ip not in WHITELISTED_IPS:
             return jsonify({
                 "status": "error",
                 "message": "Access denied: Your IP is not whitelisted"
-            }), 403
+            }), 400
 
         currentUser = request.currentUser
         data = request.get_json()
@@ -80,7 +81,7 @@ class AttackController:
             return jsonify({
                 "status": "error",
                 "message": "Your account has been deactivated"
-            }), 403
+            }), 400
 
         # Check for MAX_ATTACK_ATTEMPTS before proceeding
         if user.attackCount >= MAX_ATTACK_ATTEMPTS:
@@ -88,7 +89,7 @@ class AttackController:
             return jsonify({
                 "status": "error",
                 "message": f"You have exceeded the maximum number of attacks ({MAX_ATTACK_ATTEMPTS}). Your account has been deactivated"
-            }), 403
+            }), 400
 
         socketId = data.get('sid', '')
         domainName = data.get('domain', '')
@@ -104,8 +105,8 @@ class AttackController:
 
                 return jsonify({
                     "status": "error",
-                    "message": f"Your account has been deactivated for attempting to attack restricted domain {domainName}"
-                }), 403
+                    "message": f"Your attack on {domainName} has been blocked"
+                }), 400
 
       
 
