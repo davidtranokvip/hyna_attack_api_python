@@ -12,4 +12,4 @@ BLACKLISTED_DOMAINS = [
 ]
 
 # Maximum number of attack attempts before account deactivation
-MAX_ATTACK_ATTEMPTS = 50
+MAX_ATTACK_ATTEMPTS = 3
