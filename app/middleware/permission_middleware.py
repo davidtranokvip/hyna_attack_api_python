@@ -24,7 +24,7 @@ def checkPermission():
                     return f(*args, **kwargs)
                 
                 # Get current path and method
-                path = request.path  # "/api/users" hoặc "/api/users/123" ...
+                path = request.path
                 method = request.method
                 
                 if path.startswith('/api/'):

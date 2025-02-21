@@ -18,20 +18,64 @@ def createUser():
     try:
         user = request.get_json()
 
-        if not user.get('email') or not user.get('password'):
-            return jsonify({'message': 'Email and password are required'}), 400
+        if not user.get('email') and not user.get('password') and not user.get('nameAccount'):
+             return jsonify({
+                'message': {
+                    'email': 'Email is required',
+                    'password': 'Password is required',
+                    'nameAccount': 'Name is required'
+                }, 'status': 'error'
+            }), 400
+        elif not user.get('email'):
+            return jsonify({
+                'message': {
+                    'email': 'Email is required'
+                }, 'status': 'error'
+            }), 400
+        elif not user.get('password'):
+            return jsonify({
+                'message': {
+                    'password': 'Password is required'
+                }, 'status': 'error'
+            }), 400
+        elif not user.get('nameAccount'):
+            return jsonify({
+                'message': {
+                    'nameAccount': 'Name is required'
+                }, 'status': 'error'
+            }), 400
         
         if len(user.get('password')) < PASSWORD_MIN_LENGTH:
-            return jsonify({'message': 'Password must be at least 8 characters long'}), 400
+            return jsonify({
+                'message': {
+                    'password': 'Password must be at least 8 characters long'
+                }, 'status': 'error'
+            }), 400
                 
         # Validate email format
         email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
         if not re.match(email_pattern, user['email']):
-            return jsonify({'message': 'Invalid email format'}), 400
+            return jsonify({
+                'message': {
+                    'email': 'Invalid email format'
+                }, 'status': 'error'
+            }), 400
 
         is_existed = User.query.filter_by(email=user.get('email')).first()
         if is_existed:
-            return jsonify({'message': 'Email already registered'}), 409
+             return jsonify({
+                'message': {
+                    'email': 'Email already registered'
+                }, 'status': 'error'
+            }), 400
+        
+        is_existedAccount = User.query.filter_by(nameAccount=user.get('nameAccount')).first()
+        if is_existedAccount:
+             return jsonify({
+                'message': {
+                    'nameAccount': 'account already registered'
+                }, 'status': 'error'
+            }), 400
         
         new_user = User(email=user.get('email'), rawPassword=user.get('password'), team_id=user.get('team_id'), nameAccount=user.get('nameAccount'))
         new_user.set_password(user.get('password'))
@@ -146,31 +190,74 @@ def updateUser(userId: int):
         if not user:
             return jsonify({'message': 'User not found'}), 404
         
-        if not userData.get('password'):
-            return jsonify({'message': 'Password are required'}), 400
+        if not userData.get('email') and not userData.get('password') and not userData.get('nameAccount'):
+             return jsonify({
+                'message': {
+                    'email': 'Email is required',
+                    'password': 'Password is required',
+                    'nameAccount': 'Name is required'
+                }, 'status': 'error'
+            }), 400
         
-        if not userData.get('team_id'):
-            return jsonify({'message': 'Team are required'}), 400
-                
-        if not userData.get('email') or not userData.get('password'):
-            return jsonify({'message': 'Missing email or password'}), 400
+        elif not userData.get('email'):
+            return jsonify({
+                'message': {
+                    'email': 'Email is required'
+                }, 'status': 'error'
+            }), 400
+        
+        elif not userData.get('password'):
+            return jsonify({
+                'message': {
+                    'password': 'Password is required'
+                }, 'status': 'error'
+            }), 400
+        elif not userData.get('nameAccount'):
+            return jsonify({
+                'message': {
+                    'nameAccount': 'Name is required'
+                }, 'status': 'error'
+            }), 400
 
         # Validate email format
         email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
         if not re.match(email_pattern, userData['email']):
-            return jsonify({'message': 'Invalid email format'}), 400
+            return jsonify({
+                'message': {
+                    'email': 'Invalid email format'
+                },
+                'status': 'error'
+            }), 400
         
-        existing_user = User.query.filter(
+        existing_email = User.query.filter(
             User.email == userData['email'],
             User.id != userId  # Add this condition
         ).first()
-        # Check if user already exists
-        if existing_user:
-            return jsonify({'message': 'Email already registered'}), 409
+        if existing_email:
+            return jsonify({
+                'message': {
+                    'email': 'Email already registered'
+                },
+                'status': 'error'
+            }), 409
+        existing_account = User.query.filter(
+            User.nameAccount == userData['nameAccount'],
+            User.id != userId  # Add this condition
+        ).first()
+        if existing_account:
+            return jsonify({
+                'message': {
+                    'nameAccount': 'Account already registered'
+                },
+                'status': 'error'
+            }), 409
 
-        # Validate password strength (min 8 chars)
-        if len(userData['password']) < 8:
-            return jsonify({'message': 'Password must be at least 8 characters'}), 400
+        if len(userData['password']) < PASSWORD_MIN_LENGTH:
+            return jsonify({
+                'message': {
+                    'password': 'Password must be at least 8 characters long'
+                }, 'status': 'error'
+            }), 400
 
         user.email = userData.get('email')
         user.set_password(userData.get('password'))
