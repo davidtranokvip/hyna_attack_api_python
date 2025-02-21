@@ -10,3 +10,8 @@ controller = AttackController()
 @tokenRequired
 def attack():
     return controller.attack()
+
+@attack_routes.route("", methods=['GET'])
+@tokenRequired
+def getAttacks():
+    return controller.getLogs()
