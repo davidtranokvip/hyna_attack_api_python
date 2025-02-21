@@ -14,21 +14,48 @@ class PermissionController:
         try:
             permission = request.get_json()
             
+            if not permission.get('name') and not permission.get('module') and not permission.get('route'):
+                return jsonify({
+                    'message': {
+                        'name': 'Name is required',
+                        'route': 'Route is required',
+                        'module': 'Module is required'
+                    }, 'status': 'error'
+                }), 400
+            if not permission.get('name'):
+                return jsonify({
+                    'message': {
+                        'name': 'Name is required'
+                    }, 'status': 'error'
+                }), 400
+            elif not permission.get('module'):
+                return jsonify({
+                    'message': {
+                        'module': 'Module is required'
+                    }, 'status': 'error'
+                }), 400
+            elif not permission.get('route'):
+                return jsonify({
+                    'message': {
+                        'route': 'Route is required'
+                    }, 'status': 'error'
+                }), 400
+            
             existing_permission = Permission.query.filter_by(
                 # method=permission['method'],
-                module=permission['module'],
+                # module=permission['module'],
                 route=permission['route'],
             ).first()
-            
             if existing_permission:
                 return jsonify({
-                    "status": "error",
-                    "message": f"Permission already exists"
+                    'message': {
+                        'route': 'Route already exists'
+                    }, 'status': 'error'
                 }), 400
 
             newPermission = Permission(
-                name=permission.get('name'),
                 # method=permission.get('method'),
+                name=permission.get('name'),
                 module=permission.get('module'),
                 route=permission.get('route')
             )
@@ -137,26 +164,79 @@ class PermissionController:
             }), 400
     def updatePermission(self, permissionId):
         try: 
-            permission = request.get_json()
-            permissionName = permission.get('name')
-            # permissionMethod = permission.get('method')
-            permissionModule = permission.get('module')
-            permissionroute = permission.get('route')
-
-            permission = db.session.query(Permission).filter_by(id=permissionId).first()
-
+            permissionData = request.get_json()
+            permission = Permission.query.filter_by(id=permissionId).first() 
             if not permission:
                 return jsonify({
                     "status": "error",
                     "message": "Permission not found"
                 }), 404
-
-            permission.name = permissionName
-            # permission.method = permissionMethod
-            permission.module = permissionModule
-            permission.route = permissionroute
+            if not permissionData.get('name') and not permissionData.get('module') and not permissionData.get('route'):
+                return jsonify({
+                    'message': {
+                        'name': 'Name is required',
+                        'route': 'Route is required',
+                        'module': 'Module is required'
+                    }, 'status': 'error'
+                }), 400
+            elif not permissionData.get('route'):
+                return jsonify({
+                    'message': {
+                        'route': 'Route is required'
+                    }, 'status': 'error'
+                }), 400
+            
+            elif not permissionData.get('name'):
+                return jsonify({
+                    'message': {
+                        'name': 'Name is required'
+                    }, 'status': 'error'
+                }), 400
+            elif not permissionData.get('module'):
+                return jsonify({
+                    'message': {
+                        'module': 'Module is required'
+                    }, 'status': 'error'
+                }), 400
+            
+            existing_route = Permission.query.filter(
+            Permission.route == permissionData['route'],
+            Permission.id != permissionId  # Add this condition
+            ).first()
+            if existing_route:
+                return jsonify({
+                    'message': {
+                        'route': 'Route already exists'
+                    },
+                    'status': 'error'
+                }), 409
+            existing_name = Permission.query.filter(
+            Permission.name == permissionData['name'],
+            Permission.id != permissionId  # Add this condition
+            ).first()
+            if existing_name:
+                return jsonify({
+                    'message': {
+                        'name': 'Name already exists'
+                    }, 'status': 'error'
+                }), 400
+            existing_module = Permission.query.filter(
+            Permission.module == permissionData['module'],
+            Permission.id != permissionId  # Add this condition
+            ).first()
+            if existing_module:
+                return jsonify({
+                    'message': {
+                        'module': 'Module already exists'
+                    }, 'status': 'error'
+                }), 400
+            
+            permission.name = permissionData.get('name')
+            # permission.method = ppermission.get('method')
+            permission.module = permissionData.get('module')
+            permission.route = permissionData.get('route')
             permission.updatedAt = datetime.now()
-
+            db.session.add(permission)
             db.session.commit()
 
             return jsonify({

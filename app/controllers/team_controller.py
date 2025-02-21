@@ -10,7 +10,18 @@ class TeamController:
 
             if not team.get('name'):
                 return jsonify({
-                    'message': 'name is required',
+                    'message': {
+                        'name': 'Name is required',
+                    },
+                    'status': 'error'
+                }), 400
+            
+            is_existed = Team.query.filter(Team.name == team.get('name')).first()
+            if is_existed:
+                return jsonify({
+                    'message': {
+                        'name': 'Name already registered'
+                    }, 
                     'status': 'error'
                 }), 400
             
@@ -23,7 +34,7 @@ class TeamController:
             db.session.commit()
             
             return jsonify({
-                'message': 'teams created successfully', 
+                'message': 'Teams created successfully', 
                 'status': 'success'
             }), 202
             
@@ -94,9 +105,29 @@ class TeamController:
             if not team:
                 return jsonify({
                     "status": "error",
-                    "message": "team not found"
+                    "message": "Team not found"
                 }), 404
+            data = request.get_json()
+            is_existed = Team.query.filter(
+                Team.name == data.get('name'),
+                Team.id != teamId
+            ).first()
+        
+            if is_existed:
+                return jsonify({
+                    'message': {
+                        'name': 'Team already registered'
+                    }, 
+                    'status': 'error'
+                }), 400
             
+            if not data.get('name'):
+                return jsonify({
+                    'message': {
+                        'name': 'Name is required',
+                    },
+                    'status': 'error'
+                }), 400
             data = request.get_json()
             team.name = data.get('name', team.name)
             team.parent_id = data.get('parent_id', team.parent_id)
