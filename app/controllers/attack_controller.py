@@ -12,6 +12,9 @@ from app.configs.servers import ATTACK_SERVERS
 from app.models.attack_server_log import AttackServerLog
 
 class AttackController:
+    # Add class variable to store active channels
+    active_channels = {}  # Format: {attackLogId: {serverHostname: channel}}
+
     def _streamOutput(self, channel, socketId, attackLogId, serverHostname, app):
         with app.app_context():
             fullOutput = ""
@@ -39,6 +42,11 @@ class AttackController:
                         'server': serverHostname
                     }, room=socketId)
                 if channel.exit_status_ready():
+                    # Remove channel from active channels when complete
+                    if attackLogId in self.active_channels and serverHostname in self.active_channels[attackLogId]:
+                        del self.active_channels[attackLogId][serverHostname]
+                        if not self.active_channels[attackLogId]:
+                            del self.active_channels[attackLogId]
                     # Update server log with final output
                     serverLog.output = fullOutput
                     serverLog.status = 'completed'
@@ -63,6 +71,11 @@ class AttackController:
             channel = transport.open_session()
             channel.get_pty()
             channel.exec_command(command)
+
+            # Store channel reference
+            if attackLogId not in self.active_channels:
+                self.active_channels[attackLogId] = {}
+            self.active_channels[attackLogId][hostName] = channel
 
             app = current_app._get_current_object()
             streamThread = threading.Thread(
@@ -239,6 +252,100 @@ class AttackController:
             "successfulServers": successfulServers,
             "errors": errors if errors else None
         })
+
+    def terminate_attack(self, logId: int):
+        currentUser = request.currentUser
+        attackLog = AttackLog.query.filter_by(id=logId, userId=currentUser['id']).first()
+        
+        if not attackLog:
+            return jsonify({
+                "status": "error",
+                "message": "Attack log not found"
+            }), 404
+
+        if logId not in self.active_channels:
+            return jsonify({
+                "status": "error",
+                "message": "No active channels found for this attack"
+            }), 404
+
+        terminated_servers = []
+        for serverHostname, channel in self.active_channels[logId].items():
+            try:
+                channel.close()
+                serverLog = AttackServerLog.query.filter_by(
+                    attackLogId=logId,
+                    serverHostname=serverHostname
+                ).first()
+                if serverLog:
+                    serverLog.status = 'terminated'
+                    db.session.commit()
+                terminated_servers.append(serverHostname)
+            except Exception as e:
+                current_app.logger.error(f"Error terminating channel for server {serverHostname}: {str(e)}")
+
+        # Update attack log status
+        attackLog.status = 'terminated'
+        db.session.commit()
+
+        # Clean up active_channels
+        del self.active_channels[logId]
+
+        return jsonify({
+            "status": "success",
+            "message": "Attack terminated successfully",
+            "terminatedServers": terminated_servers
+        }), 200
+
+    def terminate_server_attack(self, logId: int, serverHostname: str):
+        currentUser = request.currentUser
+        attackLog = AttackLog.query.filter_by(id=logId, userId=currentUser['id']).first()
+        
+        if not attackLog:
+            return jsonify({
+                "status": "error",
+                "message": "Attack log not found"
+            }), 404
+
+        if logId not in self.active_channels or serverHostname not in self.active_channels[logId]:
+            return jsonify({
+                "status": "error",
+                "message": f"No active channel found for server {serverHostname}"
+            }), 404
+
+        try:
+            # Close the specific channel
+            channel = self.active_channels[logId][serverHostname]
+            channel.close()
+
+            # Update server log status
+            serverLog = AttackServerLog.query.filter_by(
+                attackLogId=logId,
+                serverHostname=serverHostname
+            ).first()
+            if serverLog:
+                serverLog.status = 'terminated'
+                db.session.commit()
+
+            # Remove channel from active_channels
+            del self.active_channels[logId][serverHostname]
+            if not self.active_channels[logId]:
+                del self.active_channels[logId]
+                # If no more active channels, update attack log status
+                attackLog.status = 'terminated'
+                db.session.commit()
+
+            return jsonify({
+                "status": "success",
+                "message": f"Attack terminated successfully for server {serverHostname}"
+            }), 200
+
+        except Exception as e:
+            current_app.logger.error(f"Error terminating channel for server {serverHostname}: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error terminating channel: {str(e)}"
+            }), 500
 
     def getLogs(self):
         currentUser = request.currentUser
