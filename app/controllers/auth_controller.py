@@ -11,9 +11,9 @@ class AuthController:
     @staticmethod
     def register():
         data = request.get_json()
-        z
+        
         if not data or not data.get('email') or not data.get('password'):
-            return jsonify({'message': 'Missing email or password'}), 400
+            return jsonify({'message': 'Enter email or password'}), 400
 
         # Validate email format
         email_pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -41,11 +41,11 @@ class AuthController:
             return jsonify({'message': 'Registration failed'}), 500
 
     @staticmethod
-    def login():
+    def login():    
         data = request.get_json()
         
         if not data or not data.get('nameAccount') or not data.get('password'):
-            return jsonify({'message': 'Missing email or password'}), 400
+            return jsonify({'message': 'Enter email or password'}), 400
 
         user = User.query.filter_by(nameAccount=data['nameAccount']).first()
 

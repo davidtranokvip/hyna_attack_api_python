@@ -12,7 +12,7 @@ def checkPermission():
         def decorated(*args, **kwargs):
             if not hasattr(request, 'currentUser'):
                 return jsonify({'message': 'Unauthorized'}), 401
-            try:
+            try:    
                 currentUser = request.currentUser
                 userId = currentUser.get('id')
                 # Check if user exists and is admin
@@ -20,8 +20,6 @@ def checkPermission():
                 if not user:
                     return jsonify({'message': 'User not found'}), 404
                     
-                if user.isAdmin:
-                    return f(*args, **kwargs)
                 
                 # Get current path and method
                 path = request.path
@@ -30,7 +28,11 @@ def checkPermission():
                 if path.startswith('/api/'):
                     path = path[5:]
                     path = path.split('/')[0]
-
+                if path == 'settings':
+                    return f(*args, **kwargs)
+                if user.isAdmin:
+                    return f(*args, **kwargs)
+                                
                 # Query permissions for the user
                 userPermissions = db.session.query(Permission)\
                     .join(UserPermission, UserPermission.permissionId == Permission.id)\
