@@ -1,5 +1,4 @@
 WHITELISTED_IPS = [
     '111.118.139.91',
-    '111.118.139.91'
-    # Add your whitelisted IPs here
+    '14.191.72.24'
 ]
