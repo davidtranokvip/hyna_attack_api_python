@@ -1,8 +1,8 @@
 ATTACK_SERVERS = [
      {
-        'hostName': '23.229.7.14',
+        'hostName': '209.127.245.174',
         'userName': 'root',
-        'password': 'bsXhIWtZLSRGc5yY',
+        'password': 'ZPeZDMGmh6K0xt0i',
         'nodePath': '/root/.nvm/versions/node/v20.18.3/bin/node'
     },
 ]
