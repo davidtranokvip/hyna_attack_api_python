@@ -52,7 +52,7 @@ class TeamController:
             teams = query.order_by(Team.updatedAt.desc()).all()
             
             return jsonify({
-                'teams': [team.toDict() for team in teams],
+                'data': [team.toDict() for team in teams],
                 'status': 'success'
             }), 200
 

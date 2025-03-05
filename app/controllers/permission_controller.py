@@ -42,8 +42,6 @@ class PermissionController:
                 }), 400
             
             existing_permission = Permission.query.filter_by(
-                # method=permission['method'],
-                # module=permission['module'],
                 route=permission['route'],
             ).first()
             if existing_permission:
@@ -54,7 +52,6 @@ class PermissionController:
                 }), 400
 
             newPermission = Permission(
-                # method=permission.get('method'),
                 name=permission.get('name'),
                 module=permission.get('module'),
                 route=permission.get('route')
@@ -90,7 +87,7 @@ class PermissionController:
                         UserPermission.userId == current_user_id
                     )
                 ).all()
-
+    
             return jsonify({
                 "status": "success",
                 "data": [permission.to_dict() for permission in permissions]

@@ -8,6 +8,7 @@ from .command_routes import command_routes
 from .attack_routes import attack_routes
 from .setting_routes import setting_routes
 from .team_routes import team_routes
+from .server_routes import server_routes
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
@@ -25,4 +26,5 @@ def init_routes(app):
     api.register_blueprint(attack_routes)
     api.register_blueprint(team_routes)
     api.register_blueprint(setting_routes)
+    api.register_blueprint(server_routes)
     app.register_blueprint(api)
