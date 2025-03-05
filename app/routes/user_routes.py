@@ -83,14 +83,15 @@ def createUser():
         db.session.add(new_user)
         db.session.commit()
 
-        if user.get('permissionIds'):
-        # Tạo các bản ghi trong bảng user_permissions
-            for permission_id in user.get('permissionIds'):
-                user_permission = UserPermission(
-                    userId=new_user.id,
-                    permissionId=permission_id
-                )
-                db.session.add(user_permission)
+        if user.get('permissions'):
+            for permission_obj in user['permissions']:
+                permission_id = permission_obj.get('id')
+                if permission_id:
+                    user_permission = UserPermission(
+                        userId=new_user.id,
+                        permissionId=permission_id
+                    )
+                    db.session.add(user_permission)
             
         db.session.commit()
 
@@ -268,13 +269,14 @@ def updateUser(userId: int):
         UserPermission.query.filter_by(userId=userId).delete()
         db.session.commit()
         if userData.get('permissions'):
-            for permission_id in userData.get('permissions'):
-                print("Adding permission:", permission_id)  
-                user_permission = UserPermission(
-                    userId=userId,
-                    permissionId=permission_id
-                )
-                db.session.add(user_permission)
+            for permission_obj in userData.get('permissions'):  
+                permission_id = permission_obj.get('id')
+                if permission_id:
+                    user_permission = UserPermission(
+                        userId=userId,
+                        permissionId=permission_id
+                    )
+                    db.session.add(user_permission)
             db.session.commit()
         return jsonify({'message': 'User updated successfully', 'status': 'success'})
     except Exception as e:

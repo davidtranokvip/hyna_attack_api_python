@@ -6,22 +6,42 @@ class SettingController:
     def create(self):
         try:
             data_list = request.get_json()
+            
             if not isinstance(data_list, list):
                 data_list = [data_list]
             
             created_settings = []
             for data in data_list:
                 
+                if not data.get('input'):
+                    return jsonify({
+                        'message': {
+                            'input': 'Input type is required'
+                        }, 'status': 'error'
+                    }), 400
+
                 existing_setting = Setting.query.filter_by(
                     group=data['group'],
                     type=data['type']
-                ).first()
+                ).first()   
                 
                 if existing_setting:
                     return jsonify({
-                        "status": "error",
-                        "message": f"Setting with group '{data['group']}' and type '{data['type']}' already exists"
+                         'message': {
+                            'group': 'group type in mode attack already exists'
+                        }, 'status': 'error'
                     }), 400
+                
+                stt_setting = Setting.query.filter_by(
+                    stt=data['stt'],
+                ).first()
+                
+                if stt_setting:
+                    return jsonify({
+                        'message': {
+                        'stt': 'STT already exists'
+                    }, 'status': 'error'
+                }), 400
 
                 if not isinstance(data['value'], list):
                     return jsonify({
@@ -39,7 +59,10 @@ class SettingController:
                 new_setting = Setting(
                     value=data['value'],
                     group=data['group'],
-                    type=data['type']
+                    type=data['type'],  
+                    input=data['input'],  
+                    description=data['description'],
+                    stt=data['stt'],
                 )
                 
                 db.session.add(new_setting)
@@ -74,16 +97,10 @@ class SettingController:
                 query = query.filter(Setting.group == group)
             
             settings = query.order_by(Setting.updatedAt.desc()).limit(limit).offset(skip).all()
-            total = query.count()
             
             return jsonify({
-                'settings': [setting.toDict() for setting in settings],
-                'meta': {
-                    'total': total,
-                    'totalPages': -(-total // limit),
-                    'currentPage': page,
-                    'pageSize': limit
-                }
+                'data': [setting.toDict() for setting in settings],
+                'status': 'success'
             }), 200
         except Exception as e:
             db.session.rollback()
@@ -120,9 +137,56 @@ class SettingController:
                 }), 404
             
             data = request.get_json()
-            setting.value = data.get('value', setting.value)
-            setting.type = data.get('type', setting.type)
-            setting.group = data.get('group', setting.group)
+
+            if 'value' not in data or not data['value']:
+                return jsonify({
+                    'message': {
+                        'group': 'Value is required'
+                        }, 'status': 'error'
+                    }), 400
+            
+            if 'input' not in data or not data['input']:
+                return jsonify({
+                    'message': {
+                        'input': 'Input is required'
+                        }, 'status': 'error'
+                    }), 400
+        
+            new_value = data.get('value')
+            new_type = data.get('type', setting.type)
+            new_group = data.get('group', setting.group)
+            new_input = data.get('input')
+            new_description = data.get('description', setting.description)
+            new_stt = data.get('stt', setting.stt)
+            
+            if new_stt is not None:
+                existing_stt = Setting.query.filter(Setting.stt == new_stt, Setting.id != settingId).first()
+                if existing_stt:
+                    return jsonify({
+                        'message': {
+                        'stt': 'STT already exists'
+                        }, 'status': 'error'
+                    }), 400
+                
+            if new_group and new_type:
+                existing_group_in_type = Setting.query.filter(
+                    Setting.group == new_group, 
+                    Setting.type == new_type,
+                    Setting.id != settingId
+                ).first()
+                if existing_group_in_type:
+                    return jsonify({
+                        'message': {
+                        'group': f"Group {new_group.upper()} already exists in type {new_type.upper()}"
+                        }, 'status': 'error'
+                    }), 400
+                
+            setting.value = new_value
+            setting.type = new_type
+            setting.group = new_group
+            setting.input = new_input
+            setting.description = new_description
+            setting.stt = new_stt
 
             db.session.commit()
             return jsonify({'message': 'Setting updated successfully', 'data': setting.toDict(), 'status': 'success'}), 200
