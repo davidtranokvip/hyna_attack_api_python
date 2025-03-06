@@ -122,7 +122,7 @@ class AttackController:
             if success:
                 successfulServers.append(server['ip'])
             else:
-                errors.append(f"Server {server['hostName']}: {error}")
+                errors.append(f"Server {server['ip']}: {error}")
 
         return successfulServers, errors
 
@@ -243,7 +243,7 @@ class AttackController:
         else:
             attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} {bypassRateLimitValue}'
         attackCommand = ' '.join(attackCommand.split())
-
+        print(attackCommand)
         attackLog = AttackLog(
             userId=currentUser['id'],
             domainName=domainName,
