@@ -10,3 +10,4 @@ yagmail
 paramiko
 flask-socketio
 flask-cors
+pycryptodome
