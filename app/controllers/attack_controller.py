@@ -81,7 +81,10 @@ class AttackController:
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             sshClient.connect(hostName, username=userName, password=passWord)
             
-            sshClient.exec_command("pkill -9 xvfb-run; pkill -9 Xvfb")
+            if command.find("hyna.js") != -1:
+                sshClient.exec_command("pkill -9 xvfb-run; pkill -9 Xvfb")
+            else:
+                sshClient.exec_command("chmod +x *")
 
             transport = sshClient.get_transport()
             channel = transport.open_session()
