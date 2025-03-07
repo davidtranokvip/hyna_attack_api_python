@@ -115,8 +115,8 @@ class AttackController:
             return False, str(e)
 
     def _executeOnServers(self, attackCommand, socketId, attackLogId, serverList=None):
-        if not serverList:
-            serverList = ATTACK_SERVERS
+        # if not serverList:
+        #     serverList = ATTACK_SERVERS
 
         successfulServers = []
         errors = []
@@ -125,7 +125,7 @@ class AttackController:
             # Generate command using server-specific node path
             command = f"{attackCommand}"
             
-            print(f"Executing command on {server['hostName']}: {command}")
+            print(f"Executing command on {server['ip']}: {command}")
             success, error = self._executeRemoteCommand(
                 server['ip'],
                 server['username'],
