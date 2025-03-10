@@ -83,25 +83,16 @@ class SettingController:
             }), 400
     def getAll(self):
         try:
-            limit = int(request.args.get('limit', 10))
-            page = int(request.args.get('page', 1))
-            skip = (page - 1) * limit
-
-            search = request.args.get('search', '')
-            group = request.args.get('group', '')
 
             query = db.session.query(Setting)
-            if search:
-                query = query.filter(Setting.key.ilike(f'%{search}%'))
-            if group:
-                query = query.filter(Setting.group == group)
+            settings = query.order_by(Setting.updatedAt.desc()).all()
             
-            settings = query.order_by(Setting.updatedAt.desc()).limit(limit).offset(skip).all()
-            
-            return jsonify({
+            result = {
                 'data': [setting.toDict() for setting in settings],
                 'status': 'success'
-            }), 200
+            }
+            
+            return jsonify(result), 200
         except Exception as e:
             db.session.rollback()
             return jsonify({

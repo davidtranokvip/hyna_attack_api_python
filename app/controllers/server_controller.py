@@ -12,16 +12,25 @@ class ServerController:
                     'message': {
                         'ip': 'Ip is required',
                         'password': 'Password is required',
-                        'username': 'Username is required'
+                        'username': 'Username is required',
+                        'thread': 'Thread is required',
                     }, 'status': 'error'
                 }), 400
 
+            if not server.get('thread'):
+                return jsonify({
+                    'message': {
+                        'thread': 'Thread is required',
+                    },'status': 'error'
+                }), 400
+            
             if not server.get('ip'):
                 return jsonify({
                     'message': {
                         'ip': 'Ip is required',
                     },'status': 'error'
                 }), 400
+            
             if not server.get('username'):
                 return jsonify({
                     'message': {
@@ -47,6 +56,7 @@ class ServerController:
                 username=server.get('username'),
                 name=server.get('name'),
                 password=server.get('password'),
+                thread=server.get('thread'),
             )
             db.session.add(newServer)
             db.session.commit()
@@ -64,14 +74,16 @@ class ServerController:
             }), 400
 
     def getAll(self):
-        try: 
+        try:
             query = db.session.query(Server)
             servers = query.order_by(Server.updatedAt.desc()).all()
-
-            return jsonify({
+                
+            result = {
                 'data': [server.to_dict() for server in servers],
                 'status': 'success'
-            }), 200
+            }
+            
+            return jsonify(result), 200
 
         except Exception as e:
             db.session.rollback()
@@ -91,12 +103,13 @@ class ServerController:
 
             data = request.get_json()
 
-            if not data.get('ip') and not data.get('username') and not data.get('password'):
+            if not data.get('ip') and not data.get('username') and not data.get('password') and not data.get('thread'):
                 return jsonify({
                     'message': {
                         'ip': 'Ip is required',
                         'password': 'Password is required',
-                        'username': 'Username is required'
+                        'username': 'Username is required',
+                        'thread': 'Username is required',
                     }, 'status': 'error'
                 }), 400
 
@@ -104,6 +117,12 @@ class ServerController:
                 return jsonify({
                     'message': {
                         'ip': 'Ip is required',
+                    },'status': 'error'
+                }), 400
+            if not data.get('thread'):
+                return jsonify({
+                    'message': {
+                        'thread': 'Thread is required',
                     },'status': 'error'
                 }), 400
             if not data.get('username'):
@@ -130,6 +149,7 @@ class ServerController:
             server.ip = data.get('ip', server.ip)
             server.password = data.get('password', server.password)
             server.name = data.get('name', server.name)
+            server.thread = data.get('thread', server.thread)
             db.session.commit()
             
             return jsonify({

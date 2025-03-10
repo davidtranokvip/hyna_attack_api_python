@@ -7,6 +7,7 @@ from app.services.email_service import EmailService
 from app.middleware.auth_middleware import tokenRequired
 from app.middleware.permission_middleware import checkPermission
 import re
+from sqlalchemy import func
 
 user_routes = Blueprint('users', __name__, url_prefix='/users')
 PASSWORD_MIN_LENGTH = 8
@@ -60,22 +61,20 @@ def createUser():
                     'email': 'Invalid email format'
                 }, 'status': 'error'
             }), 400
-
-        is_existed = User.query.filter_by(email=user.get('email')).first()
-        if is_existed:
-             return jsonify({
+        
+        if User.query.filter_by(email=user.get('email')).first():
+            return jsonify({
                 'message': {
                     'email': 'Email already registered'
                 }, 'status': 'error'
-            }), 400
-        
-        is_existedAccount = User.query.filter_by(nameAccount=user.get('nameAccount')).first()
-        if is_existedAccount:
-             return jsonify({
-                'message': {
-                    'nameAccount': 'account already registered'
-                }, 'status': 'error'
-            }), 400
+            }), 409
+    
+        if User.query.filter(func.binary(User.nameAccount) == user.get('nameAccount')).first():
+            return jsonify({
+                    'message': {
+                        'nameAccount': 'Account already registered'
+                    }, 'status': 'error'
+                }), 409
         
         new_user = User(email=user.get('email'), rawPassword=user.get('password'), team_id=user.get('team_id'), nameAccount=user.get('nameAccount'))
         new_user.set_password(user.get('password'))
@@ -94,34 +93,6 @@ def createUser():
                     db.session.add(user_permission)
             
         db.session.commit()
-
-        # send email smtp
-        # emailService = EmailService()
-        # subject = "Welcome to Hyna Platform - Your Account Details"
-        # content = [
-        #     f"""
-        #     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        #         <h2 style="color: #333;">Welcome to Hyna Platform!</h2>
-                
-        #         <p>Your account has been successfully created. Here are your login credentials:</p>
-                
-        #         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-        #             <p><strong>Email:</strong> {user.get('email')}</p>
-        #             <p><strong>Password:</strong> {user.get('password')}</p>
-        #         </div>
-
-        #         <p>For security reasons, we recommend changing your password after your first login.</p>
-                
-        #         <p>Login here: <a href="{os.getenv('FRONTEND_URL')}/login">{os.getenv('FRONTEND_URL')}/login</a></p>
-
-        #         <p style="color: #666; font-size: 12px; margin-top: 30px;">
-        #             This is an automated message, please do not reply to this email.<br>
-        #             If you need assistance, please contact our support team.
-        #         </p>
-        #     </div>
-        #     """
-        # ]
-        # emailService.send_email(user.get('email'), subject, content)
 
         return jsonify({'message': 'User created successfully', 'status': 'success'}), 201
     except Exception as e:
