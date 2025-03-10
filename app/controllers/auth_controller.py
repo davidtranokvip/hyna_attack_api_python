@@ -25,7 +25,7 @@ class AuthController:
         data = request.get_json()
         
         clientIp = request.remote_addr
-        if clientIp not in WHITELISTED_IPS:
+        if clientIp not in WHITELISTED_IPS: 
             return jsonify({
                 "status": "error",
                 "message": "Access Denied"
@@ -39,7 +39,7 @@ class AuthController:
         if not payload or not payload.get('nameAccount') or not payload.get('password'):
             return jsonify({'message': 'Enter email or password'}), 400
 
-        user = User.query.filter_by(nameAccount=payload['nameAccount']).first()
+        user = User.query.filter(func.binary(User.nameAccount) == payload['nameAccount']).first()
 
         if not user or not user.check_password(payload['password']):
             return jsonify({'message': 'Access Denied ', 'status': 'error'}), 401
