@@ -1,9 +1,8 @@
-from sqlalchemy import String
+from sqlalchemy import String, Integer
 from datetime import datetime
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db import db
-
+  
 class Server(db.Model):
     __tablename__ = 'server'
 
@@ -12,6 +11,7 @@ class Server(db.Model):
     username: Mapped[str] = mapped_column(String(100), nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(100))
+    thread: Mapped[int] = mapped_column(Integer)
     createdAt: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -20,6 +20,7 @@ class Server(db.Model):
             'id': self.id,
             'username': self.username,
             'ip': self.ip,
+            'thread': self.thread,
             'password': self.password,
             'name': self.name,
             'createdAt': str(self.createdAt),
