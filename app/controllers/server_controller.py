@@ -1,6 +1,7 @@
 from flask import jsonify, request
 from app.db import db
 from app.models.server import Server
+from app.models.team import Team
 
 class ServerController:
     def create(self):
@@ -78,6 +79,35 @@ class ServerController:
             query = db.session.query(Server)
             servers = query.order_by(Server.updatedAt.desc()).all()
                 
+            result = {
+                'data': [server.to_dict() for server in servers],
+                'status': 'success'
+            }
+            
+            return jsonify(result), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400
+        
+    def getServersForTeam(self):
+        try:
+            
+            team_id = request.args.get('team_id')
+            if not team_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Team ID is required"
+                }), 400
+            
+            query = db.session.query(Team).filter(Team.id == team_id).first()
+            server_ids = query.servers
+        
+            servers = db.session.query(Server).filter(Server.id.in_(server_ids)).all()
+            
             result = {
                 'data': [server.to_dict() for server in servers],
                 'status': 'success'

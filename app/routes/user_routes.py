@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from app.models.user import User
+from app.models.user_log import UserLog
 from app.models.permission import Permission
 from app.models.user_permission import UserPermission
 from app.db import db
@@ -24,7 +25,7 @@ def createUser():
                 'message': {
                     'email': 'Email is required',
                     'password': 'Password is required',
-                    'nameAccount': 'Name is required'
+                    'nameAccount': 'Name is required',
                 }, 'status': 'error'
             }), 400
         elif not user.get('email'):
@@ -75,8 +76,19 @@ def createUser():
                         'nameAccount': 'Account already registered'
                     }, 'status': 'error'
                 }), 409
-        
-        new_user = User(email=user.get('email'), rawPassword=user.get('password'), team_id=user.get('team_id'), nameAccount=user.get('nameAccount'))
+        entry_time = None if user.get('entryTime') == 'Invalid Date' else user.get('entryTime')
+        exit_time = None if user.get('exitTime') == 'Invalid Date' else user.get('exitTime')
+
+        new_user = User(
+            email=user.get('email'), 
+            rawPassword=user.get('password'), 
+            team_id=user.get('team_id'), 
+            nameAccount=user.get('nameAccount'),
+            server_id=user.get('server_id'),
+            thread=user.get('thread'),
+            entryTime=entry_time,
+            exitTime=exit_time
+        )
         new_user.set_password(user.get('password'))
         
         db.session.add(new_user)
@@ -135,6 +147,28 @@ def getUsers():
             "status": "error",
             "message": str(e)
         }), 400
+@user_routes.get("/log")
+@tokenRequired
+@checkPermission()
+def getUserLog():
+    try:
+        query = db.session.query(UserLog)
+        users_log = query.order_by(UserLog.time_active.desc()).all()
+                
+        result = {
+            'data': [user_log.to_dict() for user_log in users_log],
+            'status': 'success'
+        }
+            
+        return jsonify(result), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+
 @user_routes.route('/<int:userId>', methods=['GET'])
 @tokenRequired
 @checkPermission()
@@ -236,6 +270,18 @@ def updateUser(userId: int):
         user.rawPassword = userData.get('password')
         user.nameAccount = userData.get('nameAccount')
         user.team_id = userData.get('team_id')
+        user.server_id = userData.get('server_id')
+        user.thread = userData.get('thread')
+        if userData.get('entryTime') == 'Invalid Date':
+            user.entryTime = None
+        else:
+            user.entryTime = userData.get('entryTime')
+
+        if userData.get('exitTime') == 'Invalid Date':
+            user.exitTime = None
+        else:
+            user.exitTime = userData.get('exitTime')
+
         db.session.add(user)
         UserPermission.query.filter_by(userId=userId).delete()
         db.session.commit()
