@@ -27,18 +27,17 @@ def terminate_server_attack(logId, serverHostname):
     return controller.terminate_server_attack(logId, serverHostname)
 
 # API NEW
-
 @attack_routes.route('/start_process', methods=['POST'])
-# @tokenRequired
+@tokenRequired
 def start_process():
     return controller.start_process()
 
 @attack_routes.route('/list_processes', methods=['GET'])
-# @tokenRequired
+@tokenRequired
 def list_processes():
     return controller.list_processes()
 
 @attack_routes.route('/stop_process/<int:pid>', methods=['POST'])
-# @tokenRequired
+@tokenRequired
 def stop_process(pid):
     return controller.stop_process(pid)
