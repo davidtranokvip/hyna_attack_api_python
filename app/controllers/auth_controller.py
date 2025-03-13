@@ -6,7 +6,7 @@ from app.db import db
 import jwt
 from app.configs.whitelist import WHITELISTED_IPS
 from datetime import datetime, timedelta
-import re
+from app.models.user_log import UserLog
 from cryptography.hazmat.primitives import serialization
 from app.utils.decrypt_payload import decrypt_payload
 
@@ -42,17 +42,44 @@ class AuthController:
         user = User.query.filter(func.binary(User.nameAccount) == payload['nameAccount']).first()
 
         if not user or not user.check_password(payload['password']):
-            return jsonify({'message': 'Access Denied ', 'status': 'error'}), 401
-        expiration_time = datetime.utcnow() + timedelta(minutes=100)
+            return jsonify({'message': 'Access Denied', 'status': 'error'}), 401
+        if user.entryTime is not None and user.exitTime is not None:
+            current_time = datetime.now().time()
+            
+            if user.entryTime <= user.exitTime:
+                if current_time < user.entryTime or current_time > user.exitTime:
+                    return jsonify({
+                        'status': "error",
+                        'message': "Access denied"
+                    }), 403
+            else:
+                if current_time < user.entryTime and current_time > user.exitTime:
+                    return jsonify({
+                        'status': "error",
+                        'message': "Access denied"
+                    }), 403
+
+        expiration_time = datetime.utcnow() + timedelta(minutes=10)
 
         token = jwt.encode({
             'id': user.id,
             'email': user.email,
+            'thread': user.thread,
             'team_id': user.team_id,
             'nameAccount': user.nameAccount,
             'isAdmin': user.isAdmin,
             'exp': expiration_time
         }, os.getenv("SECRET_KEY"), algorithm='HS256')
+        
+        if not user.isAdmin:
+            log_entry = UserLog(
+                ip=clientIp,
+                name_account=user.nameAccount,
+                detail="LOGIN",
+                time_active=datetime.now()
+            )
+            db.session.add(log_entry)
+            db.session.commit()
 
         return jsonify({
             'status': "success",

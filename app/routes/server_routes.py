@@ -16,6 +16,11 @@ def createServer():
 def getServers():
     return controller.getAll()
 
+@server_routes.route("/team", methods=['GET'])
+@tokenRequired
+def getServersForTeam():
+    return controller.getServersForTeam()
+
 @server_routes.route("/<int:serverId>", methods=['PUT'])
 @tokenRequired
 def updateServer(serverId):
@@ -24,4 +29,5 @@ def updateServer(serverId):
 @server_routes.route("/<int:serverId>", methods=['DELETE'])
 @tokenRequired
 def deleteServer(serverId):
-    return controller.delete(serverId)
+    return controller.delete(serverId)  
+
