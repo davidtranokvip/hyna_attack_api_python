@@ -16,6 +16,11 @@ def attack():
 def getAttacks():
     return controller.getLogs()
 
+@attack_routes.route('/terminate-server-process', methods=['POST'])
+@tokenRequired
+def terminate_server_process():
+    return controller.terminate_server_process()
+
 @attack_routes.route('/terminate/<int:logId>', methods=['POST'])
 @tokenRequired
 def terminate_attack(logId):
