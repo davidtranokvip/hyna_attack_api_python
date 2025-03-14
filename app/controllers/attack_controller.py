@@ -357,7 +357,8 @@ class AttackController:
     def cancel_all_processes(self):
         currentUser = request.currentUser
         data = request.get_json()
-        server_hostnames = data.get('servers', [])
+        server_hostnames = data.get('server', [])
+        pids = data.get('pid', [])
         
         if not server_hostnames:
             return jsonify({
