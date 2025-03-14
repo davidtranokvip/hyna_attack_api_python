@@ -354,7 +354,7 @@ class AttackController:
             "terminatedServers": terminated_servers
         }), 200
         
-    def terminate_server_process(self):
+    def cancel_all_processes(self):
         currentUser = request.currentUser
         data = request.get_json()
         server_hostnames = data.get('servers', [])
