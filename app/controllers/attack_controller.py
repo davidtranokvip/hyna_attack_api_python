@@ -353,6 +353,88 @@ class AttackController:
             "message": "Attack terminated successfully",
             "terminatedServers": terminated_servers
         }), 200
+        
+    def cancel_all_processes(self):
+        currentUser = request.currentUser
+        data = request.get_json()
+        server_hostnames = data.get('server', [])
+        pids = data.get('pid', [])
+        
+        if not server_hostnames:
+            return jsonify({
+                "status": "error",
+                "message": "No server hostnames provided"
+            }), 400
+            
+        # Check if user has access to these servers
+        if currentUser.get('team_id'):
+            team = Team.query.get(currentUser['team_id'])
+            if team:
+                authorized_servers = Server.query.filter(Server.id.in_(team.servers)).all()
+                authorized_ips = [server.ip for server in authorized_servers]
+                
+                # Check if all requested servers are authorized
+                for hostname in server_hostnames:
+                    if hostname not in authorized_ips:
+                        return jsonify({
+                            "status": "error",
+                            "message": f"Unauthorized access to server: {hostname}"
+                        }), 403
+        
+        # Terminate processes on each server
+        results = {}
+        for hostname in server_hostnames:
+            try:
+                # Find server credentials
+                server = Server.query.filter_by(ip=hostname).first()
+                if not server:
+                    results[hostname] = {
+                        "status": "error",
+                        "message": "Server not found"
+                    }
+                    continue
+                
+                # Connect to the server
+                sshClient = paramiko.SSHClient()
+                sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                sshClient.connect(hostname, username=server.username, password=server.password)
+                
+                # Execute kill command
+                stdin, stdout, stderr = sshClient.exec_command("kill -9 -1")
+                
+                # Get output and errors
+                error = stderr.read().decode()
+                if error:
+                    results[hostname] = {
+                        "status": "error",
+                        "message": error
+                    }
+                else:
+                    results[hostname] = {
+                        "status": "success",
+                        "message": "Server processes terminated"
+                    }
+                
+                sshClient.close()
+            except Exception as e:
+                results[hostname] = {
+                    "status": "error",
+                    "message": str(e)
+                }
+                
+        # Check overall status
+        if all(result["status"] == "success" for result in results.values()):
+            return jsonify({
+                "status": "success",
+                "message": "All server processes terminated successfully",
+                "results": results
+            }), 200
+        else:
+            return jsonify({
+                "status": "partial_success" if any(result["status"] == "success" for result in results.values()) else "error",
+                "message": "Some or all server process terminations failed",
+                "results": results
+            }), 207  # Using 207 Multi-Status for partial success
 
     def terminate_server_attack(self, logId: int, serverHostname: str):
         currentUser = request.currentUser
