@@ -15,7 +15,7 @@ class User(db.Model):
     avatar: Mapped[str] = mapped_column(String(255))
     team_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('team.id'))
     server_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('server.id'))
-    thread: Mapped[int] = mapped_column(Integer, default=0)
+    thread: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
     rawPassword: Mapped[str] = mapped_column(String(255), default='')
     isAdmin: Mapped[bool] = mapped_column(Boolean, default=False) 
     entryTime: Mapped[time] = mapped_column(Time, nullable=True)

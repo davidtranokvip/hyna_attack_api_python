@@ -10,24 +10,7 @@ auth_routes = Blueprint('auth', __name__, url_prefix='/auth')
 def login():
     return AuthController.login()
 
-@auth_routes.get("/me")
+@auth_routes.route("/change_password", methods=['POST'])
 @tokenRequired
-def get_current_user():
-    try:
-        currentUser = request.currentUser
-
-        user = User.query.filter_by(id=currentUser['id']).first()
-        
-        if not user:
-            return jsonify({'message': 'User not found'}), 404
-            
-        return jsonify({
-            'id': user.id,
-            'email': user.email
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 400
+def updatePassword():
+    return AuthController.updatePassword()

