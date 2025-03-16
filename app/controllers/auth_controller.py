@@ -88,4 +88,49 @@ class AuthController:
                 'token' : token,
             }
         })
+    
+    @staticmethod
+    def updatePassword():
+        currentUser = request.currentUser
+        
+        payload = request.get_json()
+        
+        try:
+            payload = decrypt_payload(payload, private_key)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        
+        if not payload or not payload.get('currentPassword') or not payload.get('newPassword'):
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Current password and new password are required'
+                }), 400
+            
+        user = User.query.get(currentUser['id'])
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        
+        if not user.check_password(password=payload['currentPassword']):
+            return jsonify({
+                    'message': {
+                        'currentPassword': 'currentPassword not false'
+                    },
+                    'status': 'error'
+                }), 400
+        
+        if len(payload['newPassword']) < 8:
+            return jsonify({
+                'status': 'error', 
+                'message': 'New password must be at least 8 characters long'
+            }), 400
+        
+        user.rawPassword = payload['newPassword']
+        user.set_password(password=payload['newPassword'])
+        
+        db.session.commit()
 
+        return jsonify({   
+            'status': 'success',
+            'message': 'Update success'
+        })
+            
