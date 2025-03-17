@@ -5,6 +5,7 @@ from app.models.user import User
 from app.db import db
 import jwt
 from app.configs.whitelist import WHITELISTED_IPS
+import pytz
 from datetime import datetime, timedelta
 from app.models.user_log import UserLog
 from cryptography.hazmat.primitives import serialization
@@ -12,6 +13,7 @@ from app.utils.decrypt_payload import decrypt_payload
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
+vn_timezone = pytz.timezone('Asia/Ho_Chi_Minh')
 
 with open(private_key_path, 'rb') as key_file:
     private_key = serialization.load_pem_private_key(
@@ -44,8 +46,8 @@ class AuthController:
         if not user or not user.check_password(payload['password']):
             return jsonify({'message': 'Access Denied', 'status': 'error'}), 401
         if user.entryTime is not None and user.exitTime is not None:
-            current_time = datetime.now().time()
-            
+            current_time = datetime.now(vn_timezone).time()
+            print(current_time)
             if user.entryTime <= user.exitTime:
                 if current_time < user.entryTime or current_time > user.exitTime:
                     return jsonify({
@@ -76,7 +78,7 @@ class AuthController:
                 ip=clientIp,
                 name_account=user.nameAccount,
                 detail="LOGIN",
-                time_active=datetime.now()
+                time_active=datetime.now(vn_timezone)
             )
             db.session.add(log_entry)
             db.session.commit()

@@ -5,6 +5,7 @@ from app.models.team import Team
 from app.models.user_log import UserLog
 from app.models.user import User
 from app.models.server import Server
+import pytz
 from datetime import datetime
 from app.configs.blacklist import BLACKLISTED_DOMAINS, MAX_ATTACK_ATTEMPTS
 from app.configs.whitelist import WHITELISTED_IPS
@@ -19,6 +20,7 @@ from app.utils.decrypt_payload import decrypt_payload
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
+vn_timezone = pytz.timezone('Asia/Ho_Chi_Minh') 
 
 with open(private_key_path, 'rb') as key_file:
     private_key = serialization.load_pem_private_key(
@@ -321,7 +323,7 @@ class AttackController:
                 ip=clientIp,
                 name_account=user.nameAccount,
                 detail=f'Attack domain: {domainName} concurrent: {concurrentValue} server: {server_ips}',
-                time_active=datetime.now()
+                time_active=datetime.now(vn_timezone)
             )
             db.session.add(log_entry)
             db.session.commit()
