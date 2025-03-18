@@ -33,12 +33,12 @@ def terminate_server_attack(logId, serverHostname):
 
 # API NEW
 @attack_routes.route('/start_process', methods=['POST'])
-@tokenRequired
+# @tokenRequired
 def start_process():
     return controller.start_process()
 
 @attack_routes.route('/list_processes', methods=['GET'])
-@tokenRequired
+# @tokenRequired
 def list_processes():
     return controller.list_processes()
 

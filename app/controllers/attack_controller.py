@@ -17,6 +17,7 @@ import threading
 import json
 import os
 from app.utils.decrypt_payload import decrypt_payload
+from app.services.response import Response
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
@@ -594,6 +595,9 @@ class AttackController:
 
     def list_processes(self):
         try:
+            currentUser = request.currentUser
+            return Response.success(currentUser)
+
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             sshClient.connect("23.229.7.14", username="root", password="bsXhIWtZLSRGc5yY")
@@ -618,9 +622,9 @@ class AttackController:
                 }
                 process_list.append(process_info)
 
-            return jsonify({"status": "success", "data": process_list}), 200
+            return Response.success(data=process_list, message="List Processes")
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
+            return Response.error(message=str(e), code=404)
 
     def stop_process(self, pid):
         try:

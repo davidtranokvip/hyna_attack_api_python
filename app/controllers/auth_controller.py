@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from app.models.user_log import UserLog
 from cryptography.hazmat.primitives import serialization
 from app.utils.decrypt_payload import decrypt_payload
+from app.services.response import Response
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
@@ -24,55 +25,25 @@ with open(private_key_path, 'rb') as key_file:
 class AuthController:
     @staticmethod
     def login():    
+        clientIp = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if clientIp not in WHITELISTED_IPS:
+            return Response.error(message=f"{clientIp} IP Access Denied", code=400)
+
         data = request.get_json()
-        
-        clientIp = request.remote_addr
-        if clientIp not in WHITELISTED_IPS: 
-            return jsonify({
-                "status": "error",
-                "message": "Access Denied"
-            }), 400
 
-        try:
-            payload = decrypt_payload(data, private_key)
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
-        
-        if not payload or not payload.get('nameAccount') or not payload.get('password'):
-            return jsonify({'message': 'Enter email or password'}), 400
+        current_time = datetime.now(vn_timezone).time()
 
-        user = User.query.filter(func.binary(User.nameAccount) == payload['nameAccount']).first()
+        user = User.query.filter(
+            func.binary(User.nameAccount) == data['nameAccount'],
+            and_(
+                or_(User.entryTime.is_(None), User.entryTime <= current_time),
+                or_(User.exitTime.is_(None), User.exitTime >= current_time)
+            )
+        ).first()
 
-        if not user or not user.check_password(payload['password']):
-            return jsonify({'message': 'Access Denied', 'status': 'error'}), 401
-        if user.entryTime is not None and user.exitTime is not None:
-            current_time = datetime.now(vn_timezone).time()
-            print(current_time)
-            if user.entryTime <= user.exitTime:
-                if current_time < user.entryTime or current_time > user.exitTime:
-                    return jsonify({
-                        'status': "error",
-                        'message': "Access denied"
-                    }), 403
-            else:
-                if current_time < user.entryTime and current_time > user.exitTime:
-                    return jsonify({
-                        'status': "error",
-                        'message': "Access denied"
-                    }), 403
+        if not user or not user.check_password(data['password']):
+            return Response.error("Invalid credentials or access time", code=403)
 
-        expiration_time = datetime.utcnow() + timedelta(minutes=10)
-
-        token = jwt.encode({
-            'id': user.id,
-            'email': user.email,
-            'thread': user.thread,
-            'team_id': user.team_id,
-            'nameAccount': user.nameAccount,
-            'isAdmin': user.isAdmin,
-            'exp': expiration_time
-        }, os.getenv("SECRET_KEY"), algorithm='HS256')
-        
         if not user.isAdmin:
             log_entry = UserLog(
                 ip=clientIp,
@@ -83,56 +54,68 @@ class AuthController:
             db.session.add(log_entry)
             db.session.commit()
 
-        return jsonify({
-            'status': "success",
-            'message': "Access Authorized",
-            'data': {
-                'token' : token,
-            }
-        })
+        token_data = AuthController.createToken(user.to_dict())
+
+        if isinstance(token_data, str):
+            return Response.error(message=token_data, code=500)
+
+        return Response.success(data=token_data, message="Access Authorized")
     
     @staticmethod
+    def createToken(user):
+        TOKEN_EXPIRATION = int(os.getenv("TOKEN_TIME", 600))
+        expiration_time = datetime.utcnow() + timedelta(seconds=TOKEN_EXPIRATION)
+
+        SECRET_KEY = os.getenv("SECRET_KEY")
+        if not SECRET_KEY:
+            return "Missing SECRET_KEY in environment variables"
+
+        payload = {
+            'id': user.get('id') if isinstance(user, dict) else user.id,
+            'email': user.get('email') if isinstance(user, dict) else user.email,
+            'thread': user.get('thread') if isinstance(user, dict) else user.thread,
+            'team_id': user.get('team_id') if isinstance(user, dict) else user.team_id,
+            'nameAccount': user.get('nameAccount') if isinstance(user, dict) else user.nameAccount,
+            'isAdmin': user.get('isAdmin') if isinstance(user, dict) else user.isAdmin,
+            'exp': expiration_time
+        }
+
+        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+        return {'token': token, 'expires_at': expiration_time.isoformat()}
+
+    @staticmethod
     def updatePassword():
+        if not hasattr(request, 'currentUser') or not request.currentUser:
+            return Response.error("Unauthorized", code=401)
+        
         currentUser = request.currentUser
-        
+
         payload = request.get_json()
-        
+
         try:
             payload = decrypt_payload(payload, private_key)
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
-        
-        if not payload or not payload.get('currentPassword') or not payload.get('newPassword'):
-                return jsonify({
-                    'status': 'error', 
-                    'message': 'Current password and new password are required'
-                }), 400
-            
+            return Response.error(f"Failed to decrypt payload: {str(e)}", code=400)
+
+        current_password = payload.get('currentPassword')
+        new_password = payload.get('newPassword')
+
+        if not current_password or not new_password:
+            return Response.error("Current password and new password are required", code=400)
+
         user = User.query.get(currentUser['id'])
         if not user:
-            return jsonify({'status': 'error', 'message': 'User not found'}), 404
-        
-        if not user.check_password(password=payload['currentPassword']):
-            return jsonify({
-                    'message': {
-                        'currentPassword': 'currentPassword not false'
-                    },
-                    'status': 'error'
-                }), 400
-        
-        if len(payload['newPassword']) < 8:
-            return jsonify({
-                'status': 'error', 
-                'message': 'New password must be at least 8 characters long'
-            }), 400
-        
-        user.rawPassword = payload['newPassword']
-        user.set_password(password=payload['newPassword'])
-        
+            return Response.error("User not found", code=404)
+
+        if not user.check_password(password=current_password):
+            return Response.error("Incorrect current password", code=403)
+
+        if len(new_password) < 8:
+            return Response.error("New password must be at least 8 characters long", code=400)
+
+        user.set_password(password=new_password)
         db.session.commit()
 
-        return jsonify({   
-            'status': 'success',
-            'message': 'Update success'
-        })
+        return Response.success("Password updated successfully")
+
             

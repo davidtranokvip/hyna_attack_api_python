@@ -1,0 +1,138 @@
+import os
+from flask import jsonify, request
+from sqlalchemy import func
+from app.models.user import User
+from app.db import db
+import jwt
+from app.configs.whitelist import WHITELISTED_IPS
+import pytz
+from datetime import datetime, timedelta
+from app.models.user_log import UserLog
+from cryptography.hazmat.primitives import serialization
+from app.utils.decrypt_payload import decrypt_payload
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
+vn_timezone = pytz.timezone('Asia/Ho_Chi_Minh')
+
+with open(private_key_path, 'rb') as key_file:
+    private_key = serialization.load_pem_private_key(
+        key_file.read(),
+        password=None
+    )
+
+class AuthController:
+    @staticmethod
+    def login():    
+        data = request.get_json()
+        
+        clientIp = request.remote_addr
+        if clientIp not in WHITELISTED_IPS: 
+            return jsonify({
+                "status": "error",
+                "message": "Access Denied"
+            }), 400
+
+        try:
+            payload = decrypt_payload(data, private_key)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        
+        if not payload or not payload.get('nameAccount') or not payload.get('password'):
+            return jsonify({'message': 'Enter email or password'}), 400
+
+        user = User.query.filter(func.binary(User.nameAccount) == payload['nameAccount']).first()
+
+        if not user or not user.check_password(payload['password']):
+            return jsonify({'message': 'Access Denied', 'status': 'error'}), 401
+        if user.entryTime is not None and user.exitTime is not None:
+            current_time = datetime.now(vn_timezone).time()
+            print(current_time)
+            if user.entryTime <= user.exitTime:
+                if current_time < user.entryTime or current_time > user.exitTime:
+                    return jsonify({
+                        'status': "error",
+                        'message': "Access denied"
+                    }), 403
+            else:
+                if current_time < user.entryTime and current_time > user.exitTime:
+                    return jsonify({
+                        'status': "error",
+                        'message': "Access denied"
+                    }), 403
+
+        expiration_time = datetime.utcnow() + timedelta(minutes=10)
+
+        token = jwt.encode({
+            'id': user.id,
+            'email': user.email,
+            'thread': user.thread,
+            'team_id': user.team_id,
+            'nameAccount': user.nameAccount,
+            'isAdmin': user.isAdmin,
+            'exp': expiration_time
+        }, os.getenv("SECRET_KEY"), algorithm='HS256')
+        
+        if not user.isAdmin:
+            log_entry = UserLog(
+                ip=clientIp,
+                name_account=user.nameAccount,
+                detail="LOGIN",
+                time_active=datetime.now(vn_timezone)
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+
+        return jsonify({
+            'status': "success",
+            'message': "Access Authorized",
+            'data': {
+                'token' : token,
+            }
+        })
+    
+    @staticmethod
+    def updatePassword():
+        currentUser = request.currentUser
+        
+        payload = request.get_json()
+        
+        try:
+            payload = decrypt_payload(payload, private_key)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 400
+        
+        if not payload or not payload.get('currentPassword') or not payload.get('newPassword'):
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Current password and new password are required'
+                }), 400
+            
+        user = User.query.get(currentUser['id'])
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        
+        if not user.check_password(password=payload['currentPassword']):
+            return jsonify({
+                    'message': {
+                        'currentPassword': 'currentPassword not false'
+                    },
+                    'status': 'error'
+                }), 400
+        
+        if len(payload['newPassword']) < 8:
+            return jsonify({
+                'status': 'error', 
+                'message': 'New password must be at least 8 characters long'
+            }), 400
+        
+        user.rawPassword = payload['newPassword']
+        user.set_password(password=payload['newPassword'])
+        
+        db.session.commit()
+
+        return jsonify({   
+            'status': 'success',
+            'message': 'Update success'
+        })
+            
