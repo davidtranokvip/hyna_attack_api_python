@@ -1,6 +1,6 @@
 import os
 from flask import jsonify, request
-from sqlalchemy import func
+from sqlalchemy import and_, or_, func
 from app.models.user import User
 from app.db import db
 import jwt
@@ -63,24 +63,18 @@ class AuthController:
     
     @staticmethod
     def createToken(user):
-        TOKEN_EXPIRATION = int(os.getenv("TOKEN_TIME", 600))
+        TOKEN_EXPIRATION = 600
         expiration_time = datetime.utcnow() + timedelta(seconds=TOKEN_EXPIRATION)
 
         SECRET_KEY = os.getenv("SECRET_KEY")
         if not SECRET_KEY:
             return "Missing SECRET_KEY in environment variables"
 
-        payload = {
-            'id': user.get('id') if isinstance(user, dict) else user.id,
-            'email': user.get('email') if isinstance(user, dict) else user.email,
-            'thread': user.get('thread') if isinstance(user, dict) else user.thread,
-            'team_id': user.get('team_id') if isinstance(user, dict) else user.team_id,
-            'nameAccount': user.get('nameAccount') if isinstance(user, dict) else user.nameAccount,
-            'isAdmin': user.get('isAdmin') if isinstance(user, dict) else user.isAdmin,
-            'exp': expiration_time
-        }
+        payload = vars(user) if not isinstance(user, dict) else user
+        payload.pop("password", None)
+        payload["exp"] = expiration_time
 
-        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
         return {'token': token, 'expires_at': expiration_time.isoformat()}
 
     @staticmethod

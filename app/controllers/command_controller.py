@@ -122,7 +122,6 @@ class CommandController:
             }), 404
 
         try:
-            # Execute the command
             result = subprocess.run(command.command, shell=True, capture_output=True, text=True, timeout=command.durationOfRunning)
             output = result.stdout
             error = result.stderr
