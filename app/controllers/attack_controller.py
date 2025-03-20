@@ -399,6 +399,10 @@ class AttackController:
                     return Response.success(ServerManager.server_stop_multi(servers))
                 else:
                     data = request.get_json()
+
+                    if not data or "server_ip" not in data or not data["server_ip"]:
+                        return Response.error("Missing or invalid 'server_ip'", 400)
+
                     servers_data = Server.query.filter_by(ip=data['server_ip']).first()
 
                     if not servers_data:
