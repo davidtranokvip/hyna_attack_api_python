@@ -3,8 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 class ServerManager:
     @staticmethod
+    #  attack for user only server
     def server_only(server_ip, server_username, server_password, command):
         try:
+            print(server_ip)
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             sshClient.connect(server_ip, username=server_username, password=server_password)
@@ -18,6 +20,7 @@ class ServerManager:
             return {"server": server_ip, "status": "error", "message": str(e)}
 
     @staticmethod
+    #  attack for admin multi server
     def server_multi(servers, command):
         results = []
         with ThreadPoolExecutor(max_workers=len(servers)) as executor:
@@ -27,7 +30,8 @@ class ServerManager:
         return results
 
     @staticmethod
-    def server_get_single(server_ip, server_username, server_password):
+    # get only proccess attack for user
+    def server_get_single(server_id, server_name, server_ip, server_username, server_password):
         try:
             sshClient = paramiko.SSHClient()
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -44,42 +48,47 @@ class ServerManager:
                     continue
 
                 process_info = {
-                    "origin_data": process,
                     "domain": parts[12] if len(parts) > 12 else "N/A",
                     "attack_time": parts[8] if len(parts) > 8 else "N/A",
                     "remaining_time": parts[9] if len(parts) > 9 else "N/A",
                     "concurrents": int(parts[14]) if len(parts) > 14 and parts[14].isdigit() else 0,
                     "pid": int(parts[1]) if parts[1].isdigit() else -1,
-                    "server_ip": server_ip
+                    "server_id": server_id,
+                    "server_name": server_name,
                 }
                 process_list.append(process_info)
 
-            return {"server": server_ip, "status": "success", "processes": process_list}
+            return process_list
         except Exception as e:
-            return {"server": server_ip, "status": "error", "message": str(e)}
+            return {"message": str(e)}
 
     @staticmethod
+     # get multi proccess attack for superadmin
     def server_get_multi(servers):
         results = []
-
+ 
         with ThreadPoolExecutor(max_workers=len(servers)) as executor:
             futures = [
                 executor.submit(
                     ServerManager.server_get_single,
+                    server["id"],
+                    server["name"],
                     server["ip"],
                     server["username"],
                     server["password"]
                 ) for server in servers
             ]
-
             for future in futures:
                 server_result = future.result()
-                if "processes" in server_result and isinstance(server_result["processes"], list):
-                    results.extend(server_result["processes"])
+                if isinstance(server_result, list):
+                    results.extend(server_result)
+                elif isinstance(server_result, dict) and "message" in server_result:
+                    print(f"Lỗi từ server: {server_result['message']}")
 
         return results
 
     @staticmethod
+    # stop proccess single
     def server_stop_single(server_ip, server_username, server_password, pid=None):
         sshClient = paramiko.SSHClient()
         try:
@@ -91,25 +100,26 @@ class ServerManager:
             error_output = stderr.read().decode().strip()
 
             if error_output:
-                return {"server": server_ip, "status": "error", "message": error_output}
+                return []
 
-            return {"server": server_ip, "status": "success", "message": f"Stopped {'PID ' + str(pid) if pid else 'all user processes'}"}
+            return []
         except Exception as e:
-            return {"server": server_ip, "status": "error", "message": str(e)}
+            return []
         finally:
             sshClient.close()
 
-    @staticmethod
-    def server_stop_multi(servers):
-        with ThreadPoolExecutor(max_workers=min(10, len(servers))) as executor:
-            results = list(executor.map(
-                lambda server: ServerManager.server_stop_single(
-                    server["ip"], server["username"], server["password"], None
-                ),
-                servers
-            ))
+    # @staticmethod
+    # def server_stop_multi(servers):
+    #     with ThreadPoolExecutor(max_workers=min(10, len(servers))) as executor:
+    #         results = list(executor.map(
+    #             lambda server: ServerManager.server_stop_single(
+    #                 server["ip"], server["username"], server["password"], None
+    #             ),
+    #             servers
+    #         ))
 
-        return results
+    #     return results
+    # def server_stop_mulit_user
 
         
         

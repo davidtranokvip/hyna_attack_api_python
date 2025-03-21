@@ -15,7 +15,7 @@ PASSWORD_MIN_LENGTH = 8
 
 @user_routes.post("")
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def createUser():
     try:
         user = request.get_json()
@@ -115,7 +115,7 @@ def createUser():
         }), 400
 @user_routes.get("")
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def getUsers():
     try:
         limit = int(request.args.get('limit', 10))
@@ -149,7 +149,7 @@ def getUsers():
         }), 400
 @user_routes.get("/log")
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def getUserLog():
     try:
         query = db.session.query(UserLog)
@@ -171,7 +171,7 @@ def getUserLog():
 
 @user_routes.route('/<int:userId>', methods=['GET'])
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def getUser(userId):
     try:
         user = User.query.filter_by(id=userId).first()
@@ -188,7 +188,7 @@ def getUser(userId):
         }), 400
 @user_routes.route("/<int:userId>", methods=['PUT'])
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def updateUser(userId: int):
     try:
         user = User.query.filter_by(id=userId).first() 
@@ -304,7 +304,7 @@ def updateUser(userId: int):
         }), 400
 @user_routes.route("/<int:userId>", methods=['DELETE'])
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def deleteUser(userId: int):
     try:
         user = User.query.filter_by(id=userId).first()

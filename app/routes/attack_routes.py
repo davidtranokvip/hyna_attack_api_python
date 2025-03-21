@@ -11,20 +11,15 @@ controller = AttackController()
 def attack():
     return controller.attack()
 
-@attack_routes.route("", methods=['GET'])
+@attack_routes.route('/stop_multiple', methods=['POST'])
 @tokenRequired
-def getAttacks():
-    return controller.getLogs()
-
-@attack_routes.route('/cancel_all_processes', methods=['POST'])
+def stop_multiple_processes():
+    return controller.stop_multiple_processes()
+ 
+@attack_routes.route('/stop_process/<int:pid>', methods=['POST'])
 @tokenRequired
-def cancel_all_processes():
-    return controller.cancel_all_processes()
-
-@attack_routes.route('/terminate/<int:logId>', methods=['POST'])
-@tokenRequired
-def terminate_attack(logId):
-    return controller.terminate_attack(logId)
+def stop_process(pid):
+    return controller.stop_process(pid)
 
 @attack_routes.route('/terminate/<int:logId>/server/<string:serverHostname>', methods=['POST'])
 @tokenRequired
@@ -35,8 +30,3 @@ def terminate_server_attack(logId, serverHostname):
 @tokenRequired
 def list_processes():
     return controller.list_processes()
-
-@attack_routes.route('/stop_process/<int:pid>', methods=['POST'])
-@tokenRequired
-def stop_process(pid):
-    return controller.stop_process(pid)

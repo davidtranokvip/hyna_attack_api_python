@@ -15,7 +15,7 @@ def createSetting():
 
 @setting_routes.route("", methods=['GET'])
 @tokenRequired
-@checkPermission()
+# @checkPermission()
 def getSettings():
     return controller.getAll()
 
