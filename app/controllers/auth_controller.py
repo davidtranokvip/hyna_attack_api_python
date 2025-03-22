@@ -26,9 +26,9 @@ class AuthController:
     @staticmethod
     def login():
         try:
-            clientIp = request.headers.get("X-Forwarded-For", request.remote_addr)
-            if clientIp not in WHITELISTED_IPS:
-                return Response.error(message=f"{clientIp} IP Access Denied", code=400)
+            # clientIp = request.headers.get("X-Forwarded-For", request.remote_addr)
+            # if clientIp not in WHITELISTED_IPS:
+            #     return Response.error(message=f"{clientIp} IP Access Denied", code=400)
 
             data = request.get_json()
             
