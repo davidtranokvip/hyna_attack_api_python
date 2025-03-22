@@ -89,7 +89,7 @@ class AuthController:
         
         payload = vars(user) if not isinstance(user, dict) else user
         payload.pop("password", None)
-        payload["exp"] = expiration_time
+        payload["exp"] = expiration_time.timestamp()
         payload = AuthController.convert_datetime(payload)
 
         token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
