@@ -60,6 +60,11 @@ class AuthController:
             if isinstance(token_data, str):
                 return Response.error(message=token_data, code=500)
 
+            user_info = user.to_dict()
+            user_info.pop("password", None)
+
+            token_data["user"] = user_info
+
             return Response.success(data=token_data, message="Access Authorized")
         except KeyError as e:
             return Response.error(f"Missing key: {str(e)}", code=400)
