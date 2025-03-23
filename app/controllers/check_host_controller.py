@@ -2,80 +2,69 @@ from flask import jsonify, request
 import requests
 import time
 from urllib.parse import urlparse
+from app.services.response import Response
 
 class CheckHostController:
-    def checkHost(self):
+    def get_list(self):
         data = request.get_json()
-        url = data.get('url')
 
-        # Validate URL is not empty
-        if not url:
-            return jsonify({
-                "status": "error",
-                "message": "URL cannot be empty"
-            }), 400
+        if not data or "host" not in data:
+            return Response.error("Missing 'host' parameter in JSON.", code=400)
 
-        # Validate URL scheme
-        if not url.startswith(('http://', 'https://')):
-            return jsonify({
-                "status": "error", 
-                "message": "URL must start with http:// or https://"
-            }), 400
+        host = data["host"]
+        max_nodes = data.get("max_nodes")
 
-        try:
-            # Extract hostname from URL
-            hostname = urlparse(url).netloc
+        check_url = "https://check-host.net/check-http"
+        payload = {"host": host, **({"max_nodes": max_nodes} if max_nodes else {})}
+        headers = {"Accept": "application/json"}
 
-            # Initialize check on check-host.net
-            initResponse = requests.get(
-                f'https://check-host.net/check-http?host={hostname}&max_nodes=4&node=vn1.node.check-host.net',
-                headers={'Accept': 'application/json'}
-            )
-           
-            if initResponse.status_code != 200:
-                return jsonify({
-                    "status": "error",
-                    "message": "Failed to initialize host check"
-                }), 500
+        response = requests.post(check_url, data=payload, headers=headers)
+        if response.status_code != 200:
+            return Response.error("Unable to send check request.", code=401)
 
-            requestId = initResponse.json().get('request_id')
-            
-            # Wait for results (usually takes a few seconds)
-            time.sleep(3)
+        response_data = response.json()
+        request_id = response_data.get("request_id")
+        if not request_id:
+            return Response.error("Did not receive request_id.", code=401)
 
-            # Get results
-            resultResponse = requests.get(
-                f'https://check-host.net/check-result/{requestId}',
-                headers={'Accept': 'application/json'}
-            )
+        time.sleep(5)
 
-            if resultResponse.status_code != 200:
-                return jsonify({
-                    "status": "error",
-                    "message": "Failed to get check results"
-                }), 500
+        result_url = f"https://check-host.net/check-result/{request_id}"
+        result_response = requests.post(result_url, headers=headers)
+        if result_response.status_code != 200:
+            return Response.error("Unable to retrieve check results.", code=401)
 
-            results = resultResponse.json()
-            # Process results for Vietnam and Thailand
-            vietnamAvailable = False
-            thailandAvailable = False
+        result_data = result_response.json()
 
-            for server, checks in results.items():
-                if 'vn1.node.check-host.net' in server:
-                    vietnamAvailable = checks and checks[0] and checks[0][0] == 1
-                elif 'Thailand' in server:
-                    thailandAvailable = checks and checks[0] and checks[0][0] == 1
+        http_data = {
+            node: {
+                "country": details[1],
+                "capital_city": details[2],
+                "ip": details[3]
+            }
+            for node, details in response_data.get("nodes", {}).items()
+        }
 
-            return jsonify({
-                "status": "success",
-                "data": {
-                    "vietnam": vietnamAvailable,
-                    "thailand": thailandAvailable
-                }
-            }), 200
+        result_list = {
+            node: {
+                "statusCode": str(details[0][3]) if str(details[0][3]) == "200" else None,
+                "statusText": details[0][2] if details[0][2] == "OK" else None,
+                "ip": details[0][4]
+            }
+            for node, details in result_data.items() if details
+        }
 
-        except Exception as e:
-            return jsonify({
-                "status": "error",
-                "message": str(e)
-            }), 500
+        merged_data = []
+        for node, http_info in http_data.items():
+            if node in result_list:
+                merged_data.append({
+                    "node": node,
+                    "country": http_info["country"],
+                    "capital_city": http_info["capital_city"],
+                    "ip_http": http_info["ip"],
+                    "ip_result": result_list[node]["ip"],
+                    "statusCode": result_list[node]["statusCode"],
+                    "statusText": result_list[node]["statusText"]
+                })
+
+        return Response.success(data=merged_data)

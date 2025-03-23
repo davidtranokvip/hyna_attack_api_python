@@ -1,10 +1,10 @@
 from flask import Blueprint
 from ..controllers.check_host_controller import CheckHostController
 
-check_host_routes = Blueprint('check-hosts', __name__, url_prefix='/check-hosts')
+check_host_routes = Blueprint('check_host', __name__, url_prefix='/check_host')
 
 controller = CheckHostController()
 
-@check_host_routes.route("", methods=['POST'])
-def checkHost():
-    return controller.checkHost()
+@check_host_routes.route("/get_list", methods=['POST'])
+def get_list():
+    return controller.get_list()
