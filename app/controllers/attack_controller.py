@@ -34,8 +34,8 @@ with open(private_key_path, 'rb') as key_file:
 
 class AttackController:
     def attack(self):
-        if not is_whitelisted():
-            return Response.error(message=f"{clientIp} IP Access Denied", code=400)
+        # if not is_whitelisted():
+        #     return Response.error(message=f"{clientIp} IP Access Denied", code=400)
 
         data = request.get_json()
 
