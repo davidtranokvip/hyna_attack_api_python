@@ -12,7 +12,8 @@ from .server_routes import server_routes
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
-@api.route('/health', methods=['GET'])
+@api.route('/', methods=['GET'])
+@tokenRequired
 def health_check():
     return jsonify({"status": "ok"}), 200
 
