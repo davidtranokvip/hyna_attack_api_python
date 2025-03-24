@@ -54,9 +54,9 @@ class ServerManager:
                 }
                 process_list.append(process_info)
 
-            return {"server": server_ip, "status": "success", "processes": process_list}
+            return process_list
         except Exception as e:
-            return {"server": server_ip, "status": "error", "message": str(e)}
+            return str(e)
 
     @staticmethod
     def server_get_multi(servers):
