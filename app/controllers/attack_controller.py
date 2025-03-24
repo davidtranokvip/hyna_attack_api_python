@@ -379,7 +379,7 @@ class AttackController:
                 if not isinstance(pid, int) or pid <= 0:
                     return Response.error("Invalid PID", code=400)
 
-                server_id = currentUser['currentUser']
+                server_id = currentUser['server_id']
                 servers_data = Server.query.get(server_id)
 
                 if not servers_data:
