@@ -100,7 +100,7 @@ class AttackController:
             db.session.commit()
 
             if currentUser.get('isAdmin') is False:
-                server_id = currentUser['currentUser']
+                server_id = currentUser['server_id']
                 servers_data = Server.query.get(server_id)
 
                 if not servers_data:
@@ -350,7 +350,7 @@ class AttackController:
             currentUser = request.currentUser
 
             if currentUser.get('isAdmin') is False:
-                server_id = currentUser['currentUser']
+                server_id = currentUser['server_id']
                 servers_data = Server.query.get(server_id)
 
                 if not servers_data:
