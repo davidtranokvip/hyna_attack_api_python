@@ -26,10 +26,10 @@ class AuthController:
     @staticmethod
     def login():
         try:
-            client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+            # client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-            if client_ip:
-                client_ip = client_ip.split(",")[0].strip()
+            # if client_ip:
+            #     client_ip = client_ip.split(",")[0].strip()
 
             # if client_ip not in WHITELISTED_IPS:
             #     return Response.error(message=f"{client_ip} IP Access Denied", code=400)
@@ -49,15 +49,15 @@ class AuthController:
             if not user or not user.check_password(data['password']):
                 return Response.error("Invalid credentials or access time", code=403)
 
-            if not user.isAdmin:
-                log_entry = UserLog(
-                    ip=clientIp,
-                    name_account=user.to_dict()['nameAccount'],
-                    detail="LOGIN",
-                    time_active=datetime.now(vn_timezone).strftime("%Y-%m-%d %H:%M:%S")
-                )
-                db.session.add(log_entry)
-                db.session.commit()
+            # if not user.isAdmin:
+            #     log_entry = UserLog(
+            #         ip=clientIp,
+            #         name_account=user.to_dict()['nameAccount'],
+            #         detail="LOGIN",
+            #         time_active=datetime.now(vn_timezone).strftime("%Y-%m-%d %H:%M:%S")
+            #     )
+            #     db.session.add(log_entry)
+            #     db.session.commit()
             
             token_data = AuthController.createToken(user.to_dict())
 
