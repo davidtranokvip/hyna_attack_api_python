@@ -28,8 +28,8 @@ class AuthController:
         try:
             client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-            # if client_ip:
-            #     client_ip = client_ip.split(",")[0].strip()
+            if client_ip:
+                client_ip = client_ip.split(",")[0].strip()
 
             # if client_ip not in WHITELISTED_IPS:
             #     return Response.error(message=f"{client_ip} IP Access Denied", code=400)
