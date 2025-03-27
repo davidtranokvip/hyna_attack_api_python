@@ -9,9 +9,19 @@ class ServerManager:
             sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             sshClient.connect(server_ip, username=server_username, password=server_password)
 
+            print(f"Killing old xvfb processes on {server_ip}...")
+            print(f"Executing command on {server_ip}: {command}")
             sshClient.exec_command("pkill -9 xvfb-run; pkill -9 Xvfb")
-            sshClient.exec_command(command)
+
+            stdin, stdout, stderr = sshClient.exec_command(command)
+
+            output = stdout.read().decode().strip()
+            error = stderr.read().decode().strip()
+
             sshClient.close()
+
+            print(f"Command output: {output}")
+            print(f"Command error: {error}" if error else "No errors.")
 
             return {"server": server_ip, "status": "success", "message": "Command executed successfully"}
         except Exception as e:
