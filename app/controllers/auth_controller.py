@@ -17,9 +17,9 @@ class AuthController:
     @staticmethod
     def login():
         try:
-            clientIp = request.headers.get("X-Forwarded-For", request.remote_addr)
-            if clientIp not in WHITELISTED_IPS:
-                return Response.error(message="Access Denied", code=400)
+            # clientIp = request.headers.get("X-Forwarded-For", request.remote_addr)
+            # if clientIp not in WHITELISTED_IPS:
+            #     return Response.error(message="Access Denied", code=400)
 
             data = decrypt_payload(request.get_json())
             current_time = datetime.now(vn_timezone).time()
