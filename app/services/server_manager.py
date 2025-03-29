@@ -25,7 +25,11 @@ class ServerManager:
             stdout.read()
 
             stdin, stdout, stderr = sshClient.exec_command(command)
+
             sshClient.close()
+
+            print(f"Command output: {output}")
+            print(f"Command error: {error}" if error else "No errors.")
 
             return {"server": server_ip, "status": "success", "message": "Command executed successfully"}
         except Exception as e:
