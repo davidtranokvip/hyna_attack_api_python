@@ -83,7 +83,7 @@ class ServerController:
         
             servers = db.session.query(Server).filter(Server.id.in_(server_ids)).all()
             
-            result = [server.to_dict() for server in servers],
+            result = [server.to_dict() for server in servers]
             return Response.success(data=result, message="Get Servers Team Success")
 
         except Exception as e:

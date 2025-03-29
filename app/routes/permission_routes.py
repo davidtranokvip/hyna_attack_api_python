@@ -2,7 +2,6 @@ from flask import Blueprint
 
 from app.middleware.auth_middleware import tokenRequired
 from ..controllers.permission_controller import PermissionController
-from ..models.permission import Permission
 from ..middleware.permission_middleware import checkPermission
 
 permission_routes = Blueprint('permissions', __name__, url_prefix='/permissions')

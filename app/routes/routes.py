@@ -9,10 +9,12 @@ from .attack_routes import attack_routes
 from .setting_routes import setting_routes
 from .team_routes import team_routes
 from .server_routes import server_routes
+from app.middleware.auth_middleware import tokenRequired
 
 api = Blueprint('api', __name__, url_prefix='/api')
 
-@api.route('/health', methods=['GET'])
+@api.route('/', methods=['GET'])
+@tokenRequired
 def health_check():
     return jsonify({"status": "ok"}), 200
 

@@ -1,8 +1,8 @@
 from flask import Blueprint
 
+from app.middleware.permission_middleware import checkPermission
 from app.controllers.team_controller import TeamController
 from app.middleware.auth_middleware import tokenRequired
-from app.middleware.permission_middleware import checkPermission
 
 team_routes = Blueprint('teams', __name__, url_prefix='/teams')
 

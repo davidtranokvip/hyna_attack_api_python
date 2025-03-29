@@ -32,11 +32,11 @@ class AuthController:
                 )
             ).first()
 
-            if not user.status:
-                return Response.error("User Blocked", code=403)
-
             if not user or not user.check_password(data['password']):
                 return Response.error("Access Denied", code=403)
+
+            if not user.status:
+                return Response.error("User Blocked", code=403)
 
             if not user.isAdmin:
                 log_entry = UserLog(
@@ -52,6 +52,11 @@ class AuthController:
 
             if isinstance(token_data, str):
                 return Response.error(message=token_data, code=500)
+
+            user_info = user.to_dict()
+            user_info.pop("password", None)
+
+            token_data["user"] = user_info
 
             return Response.success(data=token_data, message="Access Authorized")
         
@@ -73,7 +78,6 @@ class AuthController:
         payload = { 
             'id': user_data.get('id'),
             'email': user_data.get('email'),
-            'thread': user_data.get('thread'),
             'team_id': user_data.get('team_id'),
             'nameAccount': user_data.get('nameAccount'),
             'isAdmin': user_data.get('isAdmin'),
