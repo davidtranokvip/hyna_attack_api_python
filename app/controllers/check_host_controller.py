@@ -1,8 +1,7 @@
-from flask import jsonify, request
+from app.services.response import Response
+from flask import request
 import requests
 import time
-from urllib.parse import urlparse
-from app.services.response import Response
 
 class CheckHostController:
     def get_list(self):
@@ -35,7 +34,6 @@ class CheckHostController:
             return Response.error("Unable to retrieve check results.", code=401)
 
         result_data = result_response.json()
-
         http_data = {
             node: {
                 "country": details[1],
@@ -44,21 +42,41 @@ class CheckHostController:
             }
             for node, details in response_data.get("nodes", {}).items()
         }
-
-        result_list = {
-            node: {
-                "statusCode": str(details[0][3]) if str(details[0][3]) == "200" else None,
-                "statusText": details[0][2] if details[0][2] == "OK" else None,
-                "ip": details[0][4]
-            }
-            for node, details in result_data.items() if details
-        }
-
+        result_list = {}
+        for node, details in result_data.items():
+            if node == "nodes":
+                continue
+            
+            try:
+                if details and isinstance(details, list) and len(details) > 0:
+                    first_detail = details[0]
+                    
+                    if first_detail and isinstance(first_detail, list):
+                        status_code = None
+                        if len(first_detail) > 3 and first_detail[3] is not None:
+                            status_code = str(first_detail[3]) if str(first_detail[3]) == "200" else None
+                        
+                        status_text = None
+                        if len(first_detail) > 2 and first_detail[2] is not None:
+                            status_text = first_detail[2] if first_detail[2] == "OK" else None
+                        
+                        ip = None
+                        if len(first_detail) > 4 and first_detail[4] is not None:
+                            ip = first_detail[4]
+                        
+                        result_list[node] = {
+                            "statusCode": status_code,
+                            "statusText": status_text,
+                            "ip": ip
+                        }
+            except Exception as e:
+                print(f"Error processing node {node}: {str(e)}")
+                continue
+            
         merged_data = []
         for node, http_info in http_data.items():
             if node in result_list:
                 merged_data.append({
-                    "node": node,
                     "country": http_info["country"],
                     "capital_city": http_info["capital_city"],
                     "ip_http": http_info["ip"],

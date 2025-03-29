@@ -1,5 +1,5 @@
-from flask import Blueprint
 from ..controllers.check_host_controller import CheckHostController
+from flask import Blueprint
 
 check_host_routes = Blueprint('check_host', __name__, url_prefix='/check_host')
 

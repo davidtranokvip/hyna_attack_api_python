@@ -16,16 +16,21 @@ def tokenRequired(f):
             return Response.error(message='Token is missing', code=401)
 
         try:
-            currentUser = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
-            user = User.query.get(currentUser['id'])
-            request.currentUser = currentUser
+            payload = jwt.decode(token, Config.SECRET_KEY, algorithms=["HS256"])
+
+            user = User.query.get(payload.get('id'))
             
+            if not user:
+                return Response.error(message='User not found', code=401)
+
+            request.currentUser = user 
+            
+            return f(*args, **kwargs)
         except jwt.ExpiredSignatureError:
             return Response.error(message='Token has expired', code=401)
 
         except jwt.InvalidTokenError:
             return Response.error(message='Invalid token', code=401)
 
-        return f(*args, **kwargs)
 
     return decorated
